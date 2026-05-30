@@ -5,7 +5,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 
-// Импорт экранов (проверь пути!)
+// Импорт экранов
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import CatalogScreen from '../screens/client/CatalogScreen';
@@ -16,19 +16,15 @@ import OrderScreen from '../screens/client/OrderScreen';
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// Временные заглушки для отсутствующих экранов
+// Временная заглушка для отсутствующих экранов
 const EmptyScreen = ({ route }) => ( <
     View style = {
-        { flex: 1, justifyContent: 'center', alignItems: 'center' }
-    } >
+        { flex: 1, justifyContent: 'center', alignItems: 'center' } } >
     <
     Text > Экран { route.name }
-    в разработке < /Text> < /
-    View >
+    в разработке < /Text> <
+    /View>
 );
-
-// Импорт View и Text для заглушки
-import { View, Text } from 'react-native';
 
 const ClientTabs = () => {
     return ( <
@@ -63,8 +59,8 @@ const ClientTabs = () => {
         /> <
         Tab.Screen name = "Профиль"
         component = { ProfileScreen || EmptyScreen }
-        /> < /
-        Tab.Navigator >
+        /> <
+        /Tab.Navigator>
     );
 };
 
@@ -77,22 +73,19 @@ export default function AppNavigator() {
         Stack.Screen name = "Login"
         component = { LoginScreen }
         options = {
-            { headerShown: false }
-        }
+            { headerShown: false } }
         /> <
         Stack.Screen name = "Register"
         component = { RegisterScreen }
         options = {
-            { headerShown: false }
-        }
+            { headerShown: false } }
         /> <
         Stack.Screen name = "ClientTabs"
         component = { ClientTabs }
         options = {
-            { headerShown: false }
-        }
-        /> < /
-        Stack.Navigator > <
+            { headerShown: false } }
+        /> <
+        /Stack.Navigator> <
         /NavigationContainer>
     );
 }
