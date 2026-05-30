@@ -7,7 +7,7 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
-import { getProducts, addToCart } from '../../assets/database/database';
+import { getProducts, addToCart } from '../../services/database';
 
 export default function CartScreen() {
   const [cart, setCart] = useState([]);
