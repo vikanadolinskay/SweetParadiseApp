@@ -19,3 +19,5 @@ jobs:
         with:
           name: app-release
           path: android/app/build/outputs/apk/release/app-release.apk
+      - name: Force rebuild (clear cache)
+        run: echo "CACHEBUST=$(date +%s)" >> $GITHUB_ENV

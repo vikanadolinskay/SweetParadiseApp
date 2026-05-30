@@ -5,8 +5,8 @@ export default function App() {
     return ( <
         View style = { styles.container } >
         <
-        Text style = { styles.text } > SweetParadise работает! < /Text> <
-        /View>
+        Text style = { styles.text } > SweetParadise работает! < /Text> < /
+        View >
     );
 }
 

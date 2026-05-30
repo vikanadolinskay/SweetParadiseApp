@@ -5,7 +5,6 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 
-// Импорт экранов
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import CatalogScreen from '../screens/client/CatalogScreen';
@@ -16,80 +15,46 @@ import OrderScreen from '../screens/client/OrderScreen';
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// Временная заглушка для отсутствующих экранов
-const EmptyScreen = ({ route }) => ( <
-    View style = {
-        { flex: 1, justifyContent: 'center', alignItems: 'center' }
-    } >
-    <
-    Text > Экран { route.name }
-    в разработке < /Text> < /
-    View >
+const EmptyScreen = ({ route }) => (
+  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+    <Text>Экран {route.name} в разработке</Text>
+  </View>
 );
 
 const ClientTabs = () => {
-    return ( <
-        Tab.Navigator screenOptions = {
-            ({ route }) => ({
-                tabBarIcon: ({ color, size }) => {
-                    let iconName;
-                    if (route.name === 'Каталог') iconName = 'menu-book';
-                    else if (route.name === 'Корзина') iconName = 'shopping-cart';
-                    else if (route.name === 'Заказы') iconName = 'list-alt';
-                    else if (route.name === 'Профиль') iconName = 'person';
-                    return <Icon name = { iconName }
-                    size = { size }
-                    color = { color }
-                    />;
-                },
-                tabBarActiveTintColor: '#D2691E',
-                tabBarInactiveTintColor: 'gray',
-                headerStyle: { backgroundColor: '#D2691E' },
-                headerTintColor: '#fff',
-            })
-        } >
-        <
-        Tab.Screen name = "Каталог"
-        component = { CatalogScreen }
-        /> <
-        Tab.Screen name = "Корзина"
-        component = { CartScreen || EmptyScreen }
-        /> <
-        Tab.Screen name = "Заказы"
-        component = { OrderScreen || EmptyScreen }
-        /> <
-        Tab.Screen name = "Профиль"
-        component = { ProfileScreen || EmptyScreen }
-        /> < /
-        Tab.Navigator >
-    );
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ color, size }) => {
+          let iconName;
+          if (route.name === 'Каталог') iconName = 'menu-book';
+          else if (route.name === 'Корзина') iconName = 'shopping-cart';
+          else if (route.name === 'Заказы') iconName = 'list-alt';
+          else if (route.name === 'Профиль') iconName = 'person';
+          return <Icon name={iconName} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: '#D2691E',
+        tabBarInactiveTintColor: 'gray',
+        headerStyle: { backgroundColor: '#D2691E' },
+        headerTintColor: '#fff',
+      })}
+    >
+      <Tab.Screen name="Каталог" component={CatalogScreen} />
+      <Tab.Screen name="Корзина" component={CartScreen || EmptyScreen} />
+      <Tab.Screen name="Заказы" component={OrderScreen || EmptyScreen} />
+      <Tab.Screen name="Профиль" component={ProfileScreen || EmptyScreen} />
+    </Tab.Navigator>
+  );
 };
 
 export default function AppNavigator() {
-    return ( <
-        NavigationContainer >
-        <
-        Stack.Navigator initialRouteName = "Login" >
-        <
-        Stack.Screen name = "Login"
-        component = { LoginScreen }
-        options = {
-            { headerShown: false }
-        }
-        /> <
-        Stack.Screen name = "Register"
-        component = { RegisterScreen }
-        options = {
-            { headerShown: false }
-        }
-        /> <
-        Stack.Screen name = "ClientTabs"
-        component = { ClientTabs }
-        options = {
-            { headerShown: false }
-        }
-        /> < /
-        Stack.Navigator > <
-        /NavigationContainer>
-    );
+  return (
+    <NavigationContainer>
+      <Stack.Navigator initialRouteName="Login">
+        <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="ClientTabs" component={ClientTabs} options={{ headerShown: false }} />
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
 }
