@@ -1,24 +1,21 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { SafeAreaView, StatusBar } from 'react-native';
+import AppNavigator from './src/navigation';
 
 export default function App() {
     return ( <
-        View style = { styles.container } >
+        >
         <
-        Text style = { styles.text } > SweetParadise работает! < /Text> < /
-        View >
+        StatusBar barStyle = "light-content"
+        backgroundColor = "#D2691E" / >
+        <
+        SafeAreaView style = {
+            { flex: 1, backgroundColor: '#D2691E' }
+        } >
+        <
+        AppNavigator / >
+        <
+        /SafeAreaView> < /
+        >
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#D2691E',
-    },
-    text: {
-        fontSize: 24,
-        color: '#fff',
-    },
-});
