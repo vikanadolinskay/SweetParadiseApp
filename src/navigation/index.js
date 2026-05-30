@@ -19,11 +19,12 @@ const Tab = createBottomTabNavigator();
 // Временная заглушка для отсутствующих экранов
 const EmptyScreen = ({ route }) => ( <
     View style = {
-        { flex: 1, justifyContent: 'center', alignItems: 'center' } } >
+        { flex: 1, justifyContent: 'center', alignItems: 'center' }
+    } >
     <
     Text > Экран { route.name }
-    в разработке < /Text> <
-    /View>
+    в разработке < /Text> < /
+    View >
 );
 
 const ClientTabs = () => {
@@ -59,8 +60,8 @@ const ClientTabs = () => {
         /> <
         Tab.Screen name = "Профиль"
         component = { ProfileScreen || EmptyScreen }
-        /> <
-        /Tab.Navigator>
+        /> < /
+        Tab.Navigator >
     );
 };
 
@@ -73,19 +74,22 @@ export default function AppNavigator() {
         Stack.Screen name = "Login"
         component = { LoginScreen }
         options = {
-            { headerShown: false } }
+            { headerShown: false }
+        }
         /> <
         Stack.Screen name = "Register"
         component = { RegisterScreen }
         options = {
-            { headerShown: false } }
+            { headerShown: false }
+        }
         /> <
         Stack.Screen name = "ClientTabs"
         component = { ClientTabs }
         options = {
-            { headerShown: false } }
-        /> <
-        /Stack.Navigator> <
+            { headerShown: false }
+        }
+        /> < /
+        Stack.Navigator > <
         /NavigationContainer>
     );
 }
