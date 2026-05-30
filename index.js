@@ -46,8 +46,8 @@ const ClientTabs = () => ( <
     /> <
     Tab.Screen name = "Профиль"
     component = { ProfileScreen }
-    /> <
-    /Tab.Navigator>
+    /> < /
+    Tab.Navigator >
 );
 
 export default function AppNavigator() {
@@ -59,19 +59,22 @@ export default function AppNavigator() {
         Stack.Screen name = "Login"
         component = { LoginScreen }
         options = {
-            { headerShown: false } }
+            { headerShown: false }
+        }
         /> <
         Stack.Screen name = "Register"
         component = { RegisterScreen }
         options = {
-            { headerShown: false } }
+            { headerShown: false }
+        }
         /> <
         Stack.Screen name = "ClientTabs"
         component = { ClientTabs }
         options = {
-            { headerShown: false } }
-        /> <
-        /Stack.Navigator> <
+            { headerShown: false }
+        }
+        /> < /
+        Stack.Navigator > <
         /NavigationContainer>
     );
 }
