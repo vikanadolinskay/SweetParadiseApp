@@ -10,9 +10,11 @@ import {
   Platform,
   ScrollView,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { signInWithEmail } from '../../services/firebase';
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
@@ -20,21 +22,21 @@ export default function LoginScreen({ navigation }) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert('Ошибка', 'Заполните все поля');
       return;
     }
-    setLoading(true);
-    // Временная заглушка
-    setTimeout(() => {
-      setLoading(false);
-      navigation.replace('ClientTabs');
-    }, 1000);
-  };
 
-  const handleGoogleLogin = () => {
-    Alert.alert('Google вход', 'Функция в разработке');
+    setLoading(true);
+    const result = await signInWithEmail(email, password);
+    setLoading(false);
+
+    if (result.success) {
+      navigation.replace('ClientTabs');
+    } else {
+      Alert.alert('Ошибка входа', result.error);
+    }
   };
 
   return (
@@ -62,6 +64,7 @@ export default function LoginScreen({ navigation }) {
               onChangeText={setEmail}
               autoCapitalize="none"
               keyboardType="email-address"
+              editable={!loading}
             />
             <View style={styles.passwordWrapper}>
               <TextInput
@@ -71,6 +74,7 @@ export default function LoginScreen({ navigation }) {
                 secureTextEntry={!showPassword}
                 value={password}
                 onChangeText={setPassword}
+                editable={!loading}
               />
               <TouchableOpacity
                 style={styles.eyeIcon}
@@ -96,35 +100,20 @@ export default function LoginScreen({ navigation }) {
               end={{ x: 1, y: 0 }}
               style={styles.gradientButton}
             >
-              <Text style={styles.loginButtonText}>
-                {loading ? 'Вход...' : 'Войти'}
-              </Text>
+              {loading ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Text style={styles.loginButtonText}>Войти</Text>
+              )}
             </LinearGradient>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+          <TouchableOpacity onPress={() => navigation.navigate('Register')} disabled={loading}>
             <Text style={styles.registerLink}>Зарегистрироваться</Text>
           </TouchableOpacity>
 
-          <View style={styles.orContainer}>
-            <View style={styles.orLine} />
-            <Text style={styles.orText}>or</Text>
-            <View style={styles.orLine} />
-          </View>
-
-          <Text style={styles.agreeText}>
-            Нажимая продолжить, вы соглашаетесь с политикой конфиденциальности
-          </Text>
-
-          <TouchableOpacity style={styles.googleButton} onPress={handleGoogleLogin}>
-            <LinearGradient
-              colors={['#FFBCD9', '#FFCBBB']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.gradientButton}
-            >
-              <Text style={styles.googleButtonText}>Continue with Google</Text>
-            </LinearGradient>
+          <TouchableOpacity onPress={() => Alert.alert('Восстановление', 'Свяжитесь с администратором для сброса пароля')}>
+            <Text style={styles.forgotLink}>Забыли пароль?</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -207,42 +196,12 @@ const styles = StyleSheet.create({
   registerLink: {
     color: '#FF147A',
     fontSize: 14,
-    marginBottom: 30,
+    marginBottom: 15,
     fontFamily: Platform.OS === 'ios' ? 'Poppins' : 'Poppins',
   },
-  orContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    marginBottom: 20,
-  },
-  orLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#E6E6E6',
-  },
-  orText: {
-    marginHorizontal: 10,
-    color: '#828282',
-    fontSize: 14,
-    fontFamily: Platform.OS === 'ios' ? 'Poppins' : 'Poppins',
-  },
-  agreeText: {
-    textAlign: 'center',
+  forgotLink: {
     color: '#828282',
     fontSize: 12,
-    marginBottom: 20,
     fontFamily: Platform.OS === 'ios' ? 'Poppins' : 'Poppins',
-  },
-  googleButton: {
-    width: '100%',
-    borderRadius: 30,
-    overflow: 'hidden',
-  },
-  googleButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-    fontFamily: Platform.OS === 'ios' ? 'Poppins-Semibold' : 'Poppins',
   },
 });
