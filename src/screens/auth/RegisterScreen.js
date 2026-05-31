@@ -9,18 +9,33 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function RegisterScreen({ navigation }) {
-  const [fullName, setFullName] = useState('');
-  const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const handleRegister = () => {
-    // Временная заглушка
-    navigation.replace('ClientTabs');
+    if (!email || !password || !confirmPassword) {
+      Alert.alert('Ошибка', 'Заполните все поля');
+      return;
+    }
+    if (password !== confirmPassword) {
+      Alert.alert('Ошибка', 'Пароли не совпадают');
+      return;
+    }
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      Alert.alert('Успех', 'Регистрация прошла успешно!');
+      navigation.replace('ClientTabs');
+    }, 1000);
   };
 
   return (
@@ -30,24 +45,16 @@ export default function RegisterScreen({ navigation }) {
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.container}>
-          <Text style={styles.title}>Регистрация</Text>
+          <LinearGradient
+            colors={['#FFBCD9', '#FFCBBB']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.titleGradient}
+          >
+            <Text style={styles.title}>Sweet Paradise</Text>
+          </LinearGradient>
 
           <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.input}
-              placeholder="ФИО"
-              placeholderTextColor="#828282"
-              value={fullName}
-              onChangeText={setFullName}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Номер телефона"
-              placeholderTextColor="#828282"
-              value={phone}
-              onChangeText={setPhone}
-              keyboardType="phone-pad"
-            />
             <TextInput
               style={styles.input}
               placeholder="Email"
@@ -57,24 +64,50 @@ export default function RegisterScreen({ navigation }) {
               autoCapitalize="none"
               keyboardType="email-address"
             />
+            <View style={styles.passwordWrapper}>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Пароль"
+                placeholderTextColor="#828282"
+                secureTextEntry={!showPassword}
+                value={password}
+                onChangeText={setPassword}
+              />
+              <TouchableOpacity
+                style={styles.eyeIcon}
+                onPress={() => setShowPassword(!showPassword)}
+              >
+                <Ionicons
+                  name={showPassword ? 'eye-off' : 'eye'}
+                  size={22}
+                  color="#828282"
+                />
+              </TouchableOpacity>
+            </View>
             <TextInput
               style={styles.input}
-              placeholder="Пароль"
+              placeholder="Подтвердите пароль"
               placeholderTextColor="#828282"
               secureTextEntry
-              value={password}
-              onChangeText={setPassword}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
             />
           </View>
 
-          <TouchableOpacity style={styles.registerButton} onPress={handleRegister}>
+          <TouchableOpacity
+            style={styles.registerButton}
+            onPress={handleRegister}
+            disabled={loading}
+          >
             <LinearGradient
               colors={['#FFBCD9', '#FFCBBB']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.gradientButton}
             >
-              <Text style={styles.registerButtonText}>Зарегистрироваться</Text>
+              <Text style={styles.registerButtonText}>
+                {loading ? 'Регистрация...' : 'Зарегистрироваться'}
+              </Text>
             </LinearGradient>
           </TouchableOpacity>
 
@@ -99,12 +132,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     backgroundColor: '#fff',
   },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#FF147A',
+  titleGradient: {
+    paddingHorizontal: 30,
+    paddingVertical: 15,
+    borderRadius: 40,
     marginBottom: 40,
-    fontFamily: Platform.OS === 'ios' ? 'Poppins-Bold' : 'Poppins',
+  },
+  title: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    color: '#fff',
+    textAlign: 'center',
   },
   inputContainer: {
     width: '100%',
@@ -114,30 +152,43 @@ const styles = StyleSheet.create({
     backgroundColor: '#E6E6E6',
     borderRadius: 12,
     padding: 15,
-    marginBottom: 15,
     fontSize: 16,
     color: '#333',
-    fontFamily: Platform.OS === 'ios' ? 'Poppins' : 'Poppins',
+    marginBottom: 15,
+  },
+  passwordWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E6E6E6',
+    borderRadius: 12,
+    paddingHorizontal: 15,
+  },
+  passwordInput: {
+    flex: 1,
+    paddingVertical: 15,
+    fontSize: 16,
+    color: '#333',
+  },
+  eyeIcon: {
+    padding: 5,
   },
   registerButton: {
     width: '100%',
     marginBottom: 20,
-    borderRadius: 12,
+    borderRadius: 30,
     overflow: 'hidden',
   },
   gradientButton: {
-    paddingVertical: 15,
+    paddingVertical: 14,
     alignItems: 'center',
   },
   registerButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
-    fontFamily: Platform.OS === 'ios' ? 'Poppins-Semibold' : 'Poppins',
   },
   loginLink: {
     color: '#FF147A',
     fontSize: 14,
-    fontFamily: Platform.OS === 'ios' ? 'Poppins' : 'Poppins',
   },
 });

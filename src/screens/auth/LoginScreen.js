@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -13,8 +13,6 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import * as Google from 'expo-auth-session/providers/google';
-import { makeRedirectUri } from 'expo-auth-session';
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
@@ -22,37 +20,13 @@ export default function LoginScreen({ navigation }) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    androidClientId: '276128636621-bkibjllkm0ie3mm5vagbv176fr3r8r2i.apps.googleusercontent.com',
-    redirectUri: makeRedirectUri({
-      scheme: 'com.victoria007.SweetParadiseApp',
-    }),
-  });
-
-  useEffect(() => {
-    if (response?.type === 'success') {
-      const { authentication } = response;
-      fetch('https://www.googleapis.com/userinfo/v2/me', {
-        headers: { Authorization: `Bearer ${authentication.accessToken}` },
-      })
-        .then(res => res.json())
-        .then(userInfo => {
-          Alert.alert('Успех', `Добро пожаловать, ${userInfo.name}`);
-          navigation.replace('ClientTabs');
-        })
-        .catch(err => {
-          Alert.alert('Ошибка', 'Не удалось получить данные пользователя');
-        });
-    }
-  }, [response]);
-
   const handleLogin = () => {
     if (!email || !password) {
       Alert.alert('Ошибка', 'Заполните все поля');
       return;
     }
     setLoading(true);
-    // Здесь добавишь проверку в Firebase
+    // Временная заглушка
     setTimeout(() => {
       setLoading(false);
       navigation.replace('ClientTabs');
@@ -60,7 +34,7 @@ export default function LoginScreen({ navigation }) {
   };
 
   const handleGoogleLogin = () => {
-    promptAsync();
+    Alert.alert('Google вход', 'Функция в разработке');
   };
 
   return (
@@ -142,11 +116,7 @@ export default function LoginScreen({ navigation }) {
             Нажимая продолжить, вы соглашаетесь с политикой конфиденциальности
           </Text>
 
-          <TouchableOpacity
-            style={styles.googleButton}
-            onPress={handleGoogleLogin}
-            disabled={!request}
-          >
+          <TouchableOpacity style={styles.googleButton} onPress={handleGoogleLogin}>
             <LinearGradient
               colors={['#FFBCD9', '#FFCBBB']}
               start={{ x: 0, y: 0 }}
