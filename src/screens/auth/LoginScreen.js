@@ -1,76 +1,182 @@
 // @ts-nocheck
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
   const handleLogin = () => {
+    // Временная заглушка — после входа переходим в каталог
     navigation.replace('ClientTabs');
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Sweet Paradise</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Пароль"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
-      <TouchableOpacity style={styles.button} onPress={handleLogin}>
-        <Text style={styles.buttonText}>Войти</Text>
-      </TouchableOpacity>
-      <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-        <Text style={styles.link}>Регистрация</Text>
-      </TouchableOpacity>
-    </View>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
+        <View style={styles.container}>
+          <Text style={styles.title}>Sweet Paradise</Text>
+
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              placeholder="Логин"
+              placeholderTextColor="#828282"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Пароль"
+              placeholderTextColor="#828282"
+              secureTextEntry
+              value={password}
+              onChangeText={setPassword}
+            />
+          </View>
+
+          <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
+            <LinearGradient
+              colors={['#FFBCD9', '#FFCBBB']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.gradientButton}
+            >
+              <Text style={styles.loginButtonText}>Войти</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+            <Text style={styles.registerLink}>Зарегистрироваться</Text>
+          </TouchableOpacity>
+
+          <View style={styles.orContainer}>
+            <View style={styles.orLine} />
+            <Text style={styles.orText}>or</Text>
+            <View style={styles.orLine} />
+          </View>
+
+          <Text style={styles.agreeText}>
+            Нажимая продолжить, вы соглашаетесь с политикой конфиденциальности
+          </Text>
+
+          <TouchableOpacity style={styles.googleButton}>
+            <LinearGradient
+              colors={['#FFBCD9', '#FFCBBB']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.gradientButton}
+            >
+              <Text style={styles.googleButtonText}>Continue with Google</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
+  scrollContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
   container: {
     flex: 1,
     justifyContent: 'center',
-    padding: 20,
+    alignItems: 'center',
+    paddingHorizontal: 30,
     backgroundColor: '#fff',
   },
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 40,
-    color: '#D2691E',
+    color: '#FF147A',
+    marginBottom: 50,
+    fontFamily: Platform.OS === 'ios' ? 'Poppins-Bold' : 'Poppins',
+  },
+  inputContainer: {
+    width: '100%',
+    marginBottom: 20,
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 15,
-  },
-  button: {
-    backgroundColor: '#D2691E',
+    backgroundColor: '#E6E6E6',
+    borderRadius: 12,
     padding: 15,
-    borderRadius: 8,
+    marginBottom: 15,
+    fontSize: 16,
+    color: '#333',
+    fontFamily: Platform.OS === 'ios' ? 'Poppins' : 'Poppins',
+  },
+  loginButton: {
+    width: '100%',
+    marginBottom: 15,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  gradientButton: {
+    paddingVertical: 15,
     alignItems: 'center',
   },
-  buttonText: {
+  loginButtonText: {
     color: '#fff',
-    fontWeight: 'bold',
     fontSize: 16,
+    fontWeight: '600',
+    fontFamily: Platform.OS === 'ios' ? 'Poppins-Semibold' : 'Poppins',
   },
-  link: {
+  registerLink: {
+    color: '#FF147A',
+    fontSize: 14,
+    marginBottom: 30,
+    fontFamily: Platform.OS === 'ios' ? 'Poppins' : 'Poppins',
+  },
+  orContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 20,
+  },
+  orLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E6E6E6',
+  },
+  orText: {
+    marginHorizontal: 10,
+    color: '#828282',
+    fontSize: 14,
+    fontFamily: Platform.OS === 'ios' ? 'Poppins' : 'Poppins',
+  },
+  agreeText: {
     textAlign: 'center',
-    marginTop: 15,
-    color: '#D2691E',
+    color: '#828282',
+    fontSize: 12,
+    marginBottom: 20,
+    fontFamily: Platform.OS === 'ios' ? 'Poppins' : 'Poppins',
+  },
+  googleButton: {
+    width: '100%',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  googleButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    fontFamily: Platform.OS === 'ios' ? 'Poppins-Semibold' : 'Poppins',
   },
 });
