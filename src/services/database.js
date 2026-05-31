@@ -4,26 +4,29 @@ import * as FileSystem from 'expo-file-system';
 import { Asset } from 'expo-asset';
 
 const DB_NAME = 'sweet.db';
-const DB_PATH = `${FileSystem.documentDirectory}SQLite/${DB_NAME}`;
 
 let db = null;
 
 const initDatabase = async() => {
     try {
-        const fileInfo = await FileSystem.getInfoAsync(DB_PATH);
+        // Правильный путь для Expo — из папки assets
+        const asset = Asset.fromModule(require('../../../assets/database/sweet.db'));
+        await asset.downloadAsync();
+
+        const dbPath = `${FileSystem.documentDirectory}SQLite/${DB_NAME}`;
+
+        const fileInfo = await FileSystem.getInfoAsync(dbPath);
 
         if (!fileInfo.exists) {
             console.log('Копирование базы данных...');
-            const asset = Asset.fromModule(require('../../android/app/src/main/assets/database/sweet.db'));
-            await asset.downloadAsync();
             await FileSystem.copyAsync({
                 from: asset.localUri,
-                to: DB_PATH,
+                to: dbPath,
             });
             console.log('База данных скопирована');
         }
 
-        db = SQLite.openDatabaseSync(DB_NAME);
+        db = await SQLite.openDatabaseAsync(DB_NAME);
         return db;
     } catch (error) {
         console.error('Ошибка инициализации БД:', error);
