@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,16 +9,58 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+import * as Google from 'expo-auth-session/providers/google';
+import { makeRedirectUri } from 'expo-auth-session';
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    androidClientId: '276128636621-bkibjllkm0ie3mm5vagbv176fr3r8r2i.apps.googleusercontent.com',
+    redirectUri: makeRedirectUri({
+      scheme: 'com.victoria007.SweetParadiseApp',
+    }),
+  });
+
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const { authentication } = response;
+      fetch('https://www.googleapis.com/userinfo/v2/me', {
+        headers: { Authorization: `Bearer ${authentication.accessToken}` },
+      })
+        .then(res => res.json())
+        .then(userInfo => {
+          Alert.alert('Успех', `Добро пожаловать, ${userInfo.name}`);
+          navigation.replace('ClientTabs');
+        })
+        .catch(err => {
+          Alert.alert('Ошибка', 'Не удалось получить данные пользователя');
+        });
+    }
+  }, [response]);
 
   const handleLogin = () => {
-    // Временная заглушка — после входа переходим в каталог
-    navigation.replace('ClientTabs');
+    if (!email || !password) {
+      Alert.alert('Ошибка', 'Заполните все поля');
+      return;
+    }
+    setLoading(true);
+    // Здесь добавишь проверку в Firebase
+    setTimeout(() => {
+      setLoading(false);
+      navigation.replace('ClientTabs');
+    }, 1000);
+  };
+
+  const handleGoogleLogin = () => {
+    promptAsync();
   };
 
   return (
@@ -28,35 +70,61 @@ export default function LoginScreen({ navigation }) {
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.container}>
-          <Text style={styles.title}>Sweet Paradise</Text>
+          <LinearGradient
+            colors={['#FFBCD9', '#FFCBBB']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.titleGradient}
+          >
+            <Text style={styles.title}>Sweet Paradise</Text>
+          </LinearGradient>
 
           <View style={styles.inputContainer}>
             <TextInput
               style={styles.input}
-              placeholder="Логин"
+              placeholder="Email"
               placeholderTextColor="#828282"
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
+              keyboardType="email-address"
             />
-            <TextInput
-              style={styles.input}
-              placeholder="Пароль"
-              placeholderTextColor="#828282"
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-            />
+            <View style={styles.passwordWrapper}>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Пароль"
+                placeholderTextColor="#828282"
+                secureTextEntry={!showPassword}
+                value={password}
+                onChangeText={setPassword}
+              />
+              <TouchableOpacity
+                style={styles.eyeIcon}
+                onPress={() => setShowPassword(!showPassword)}
+              >
+                <Ionicons
+                  name={showPassword ? 'eye-off' : 'eye'}
+                  size={22}
+                  color="#828282"
+                />
+              </TouchableOpacity>
+            </View>
           </View>
 
-          <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
+          <TouchableOpacity
+            style={styles.loginButton}
+            onPress={handleLogin}
+            disabled={loading}
+          >
             <LinearGradient
               colors={['#FFBCD9', '#FFCBBB']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.gradientButton}
             >
-              <Text style={styles.loginButtonText}>Войти</Text>
+              <Text style={styles.loginButtonText}>
+                {loading ? 'Вход...' : 'Войти'}
+              </Text>
             </LinearGradient>
           </TouchableOpacity>
 
@@ -74,7 +142,11 @@ export default function LoginScreen({ navigation }) {
             Нажимая продолжить, вы соглашаетесь с политикой конфиденциальности
           </Text>
 
-          <TouchableOpacity style={styles.googleButton}>
+          <TouchableOpacity
+            style={styles.googleButton}
+            onPress={handleGoogleLogin}
+            disabled={!request}
+          >
             <LinearGradient
               colors={['#FFBCD9', '#FFCBBB']}
               start={{ x: 0, y: 0 }}
@@ -102,11 +174,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     backgroundColor: '#fff',
   },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#FF147A',
+  titleGradient: {
+    paddingHorizontal: 30,
+    paddingVertical: 15,
+    borderRadius: 40,
     marginBottom: 50,
+  },
+  title: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    color: '#fff',
+    textAlign: 'center',
+    letterSpacing: 1,
     fontFamily: Platform.OS === 'ios' ? 'Poppins-Bold' : 'Poppins',
   },
   inputContainer: {
@@ -117,19 +196,36 @@ const styles = StyleSheet.create({
     backgroundColor: '#E6E6E6',
     borderRadius: 12,
     padding: 15,
+    fontSize: 16,
+    color: '#333',
     marginBottom: 15,
+    fontFamily: Platform.OS === 'ios' ? 'Poppins' : 'Poppins',
+  },
+  passwordWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E6E6E6',
+    borderRadius: 12,
+    paddingHorizontal: 15,
+  },
+  passwordInput: {
+    flex: 1,
+    paddingVertical: 15,
     fontSize: 16,
     color: '#333',
     fontFamily: Platform.OS === 'ios' ? 'Poppins' : 'Poppins',
   },
+  eyeIcon: {
+    padding: 5,
+  },
   loginButton: {
     width: '100%',
     marginBottom: 15,
-    borderRadius: 12,
+    borderRadius: 30,
     overflow: 'hidden',
   },
   gradientButton: {
-    paddingVertical: 15,
+    paddingVertical: 14,
     alignItems: 'center',
   },
   loginButtonText: {
@@ -170,7 +266,7 @@ const styles = StyleSheet.create({
   },
   googleButton: {
     width: '100%',
-    borderRadius: 12,
+    borderRadius: 30,
     overflow: 'hidden',
   },
   googleButtonText: {
