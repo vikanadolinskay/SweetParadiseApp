@@ -144,5 +144,5 @@ export const isAuthenticated = () => {
 };
 
 export const getCurrentUserId = () => {
-    return auth.currentUser ? .uid || null;
+    return auth.currentUser?.uid || null;
 };
