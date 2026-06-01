@@ -388,7 +388,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   maskedView: {
-    flexDirection: 'row',
+    width: 240,
+    height: 40,
     marginBottom: 40,
   },
   maskContainer: {
@@ -399,10 +400,10 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   titleMask: {
-    fontSize: 36,
+    fontSize: 28,
     fontWeight: 'bold',
     textAlign: 'center',
-    letterSpacing: 1,
+    letterSpacing: 0.5,
     fontFamily: Platform.OS === 'ios' ? 'Poppins-Bold' : 'Poppins',
     backgroundColor: 'transparent',
   },
