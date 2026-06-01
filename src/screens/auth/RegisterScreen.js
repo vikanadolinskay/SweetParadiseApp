@@ -12,15 +12,11 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import MaskedView from '@react-native-masked-view/masked-view';
 import { Ionicons } from '@expo/vector-icons';
-import {
-  registerWithEmail,
-  sendPhoneVerificationCode,
-  verifyPhoneCode,
-  clearPendingVerification,
-} from '../../services/firebase';
 import { checkEmailExists, createUser } from '../../services/database';
 
 export default function RegisterScreen({ navigation }) {
@@ -34,11 +30,16 @@ export default function RegisterScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
   const [codeSent, setCodeSent] = useState(false);
+  const [sentCode, setSentCode] = useState('');
   const [isEmailValid, setIsEmailValid] = useState(true);
   const [isEmailChecking, setIsEmailChecking] = useState(false);
   const [isPhoneValid, setIsPhoneValid] = useState(true);
-  const [countdown, setCountdown] = useState(0);
-  const countdownInterval = useRef(null);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+
+  const generateVerificationCode = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  };
 
   const validateEmail = (emailText) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -84,37 +85,15 @@ export default function RegisterScreen({ navigation }) {
     }
   };
 
-  const startCountdown = (seconds = 60) => {
-    setCountdown(seconds);
-    if (countdownInterval.current) clearInterval(countdownInterval.current);
-    countdownInterval.current = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(countdownInterval.current);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
-
-  const handleSendCode = async () => {
+  const handleSendCode = () => {
     if (!phone || !validatePhone(phone)) {
       Alert.alert('Ошибка', 'Введите корректный номер телефона в формате +7XXXXXXXXXX');
       return;
     }
-
-    setLoading(true);
-    const result = await sendPhoneVerificationCode(phone);
-    setLoading(false);
-
-    if (result.success) {
-      setCodeSent(true);
-      startCountdown(60);
-      Alert.alert('Код отправлен', 'SMS с кодом подтверждения отправлена на ваш номер');
-    } else {
-      Alert.alert('Ошибка', result.error);
-    }
+    const code = generateVerificationCode();
+    setSentCode(code);
+    setCodeSent(true);
+    Alert.alert('Код подтверждения', `Ваш код: ${code}\n(в реальном приложении будет отправлен по SMS)`);
   };
 
   const handleRegister = async () => {
@@ -143,33 +122,20 @@ export default function RegisterScreen({ navigation }) {
       return;
     }
 
-    if (!codeSent || !verificationCode || verificationCode.length < 6) {
-      Alert.alert('Ошибка', 'Введите код подтверждения из SMS');
+    if (!codeSent || !verificationCode || verificationCode !== sentCode) {
+      Alert.alert('Ошибка', 'Неверный код подтверждения');
+      return;
+    }
+
+    if (!acceptedTerms) {
+      Alert.alert('Ошибка', 'Примите условия Пользовательского соглашения');
       return;
     }
 
     setLoading(true);
 
     try {
-      const phoneVerifyResult = await verifyPhoneCode(verificationCode);
-      
-      if (!phoneVerifyResult.success) {
-        Alert.alert('Ошибка', phoneVerifyResult.error);
-        setLoading(false);
-        return;
-      }
-
-      const result = await registerWithEmail(email, password, fullName, phone);
-
-      if (!result.success) {
-        Alert.alert('Ошибка регистрации', result.error);
-        setLoading(false);
-        return;
-      }
-
-      await createUser(result.user.uid, email, fullName, phone);
-
-      clearPendingVerification();
+      await createUser(email, fullName, phone, password);
       Alert.alert('Успех', 'Регистрация прошла успешно');
       navigation.replace('ClientTabs');
     } catch (error) {
@@ -187,14 +153,21 @@ export default function RegisterScreen({ navigation }) {
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.container}>
-          <LinearGradient
-            colors={['#FFBCD9', '#FFCBBB']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.titleGradient}
+          <MaskedView
+            style={styles.maskedView}
+            maskElement={
+              <View style={styles.maskContainer}>
+                <Text style={styles.titleMask}>Sweet Paradise</Text>
+              </View>
+            }
           >
-            <Text style={styles.title}>Sweet Paradise</Text>
-          </LinearGradient>
+            <LinearGradient
+              colors={['#FFBCD9', '#FFCBBB']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.titleGradient}
+            />
+          </MaskedView>
 
           <View style={styles.inputContainer}>
             <TextInput
@@ -225,11 +198,9 @@ export default function RegisterScreen({ navigation }) {
                   <TouchableOpacity
                     style={[styles.codeButton, loading && styles.codeButtonDisabled]}
                     onPress={handleSendCode}
-                    disabled={loading || countdown > 0}
+                    disabled={loading}
                   >
-                    <Text style={styles.codeButtonText}>
-                      {countdown > 0 ? `${countdown}с` : 'Получить код'}
-                    </Text>
+                    <Text style={styles.codeButtonText}>Получить код</Text>
                   </TouchableOpacity>
                 ) : (
                   <View style={styles.codeSentBadge}>
@@ -326,6 +297,26 @@ export default function RegisterScreen({ navigation }) {
                 />
               </TouchableOpacity>
             </View>
+
+            {/* Галочка принятия условий Пользовательского соглашения */}
+            <TouchableOpacity
+              style={styles.termsContainer}
+              onPress={() => setAcceptedTerms(!acceptedTerms)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
+                {acceptedTerms && <Ionicons name="checkmark" size={16} color="#fff" />}
+              </View>
+              <Text style={styles.termsText}>
+                Я принимаю условия{' '}
+                <Text
+                  style={styles.termsLink}
+                  onPress={() => setShowTermsModal(true)}
+                >
+                  Пользовательского соглашения
+                </Text>
+              </Text>
+            </TouchableOpacity>
           </View>
 
           <TouchableOpacity
@@ -352,6 +343,34 @@ export default function RegisterScreen({ navigation }) {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Modal с Пользовательским соглашением */}
+      <Modal
+        visible={showTermsModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowTermsModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Пользовательское соглашение</Text>
+            <ScrollView style={styles.modalContent}>
+              <Text style={styles.modalText}>
+                {`1. Общие положения\n\n1.1. Настоящее Пользовательское соглашение (далее — Соглашение) регулирует отношения между кондитерской "Sweet Paradise" (далее — Кондитерская) и пользователем мобильного приложения "Sweet Paradise" (далее — Приложение).\n\n1.2. Используя Приложение и проходя регистрацию, Пользователь подтверждает свое полное и безоговорочное согласие с условиями настоящего Соглашения.\n\n1.3. Кондитерская оставляет за собой право вносить изменения в Соглашение без предварительного уведомления Пользователя. Актуальная версия Соглашения всегда доступна в Приложении.\n\n2. Предмет Соглашения\n\n2.1. Кондитерская предоставляет Пользователю возможность использовать Приложение для ознакомления с ассортиментом, персонализации и заказа кондитерских изделий.\n\n2.2. Приложение предоставляет следующие функции: просмотр каталога, персонализация товаров, добавление в корзину, оформление заказа, отслеживание статуса заказа, программа лояльности.\n\n3. Права и обязанности Пользователя\n\n3.1. Пользователь обязуется предоставлять достоверную информацию при регистрации и оформлении заказов.\n\n3.2. Пользователь обязуется самостоятельно обеспечивать сохранность своих учетных данных (логин и пароль).\n\n3.3. Пользователь имеет право отменить заказ до момента его передачи в производство.\n\n3.4. Пользователь имеет право получать информацию о статусе своего заказа.\n\n4. Права и обязанности Кондитерской\n\n4.1. Кондитерская обязуется обрабатывать заказы в установленные сроки и в соответствии с выбранными параметрами.\n\n4.2. Кондитерская обязуется обеспечивать конфиденциальность персональных данных Пользователя.\n\n4.3. Кондитерская имеет право отказать в обслуживании при нарушении Пользователем условий Соглашения.\n\n5. Конфиденциальность и обработка персональных данных\n\n5.1. Личные данные Пользователя (ФИО, номер телефона, email) используются исключительно для обработки заказов и программы лояльности.\n\n5.2. Кондитерская обязуется не передавать персональные данные третьим лицам без согласия Пользователя, за исключением случаев, предусмотренных законодательством РФ.\n\n5.3. Пользователь дает согласие на получение уведомлений о статусе заказа и акциях Кондитерской.\n\n6. Ответственность\n\n6.1. Пользователь несет ответственность за достоверность предоставленной информации.\n\n6.2. Кондитерская не несет ответственность за качество продукции, если Пользователь не указал особенности при заказе (аллергии, предпочтения).\n\n6.3. Кондитерская не несет ответственность за невозможность использования Приложения по техническим причинам, не зависящим от Кондитерской.\n\n7. Программа лояльности\n\n7.1. Бонусные баллы начисляются за каждый заказ в размере 5% от суммы заказа.\n\n7.2. Накопленные баллы можно использовать для оплаты до 50% стоимости заказа.\n\n7.3. Баллы действительны в течение 6 месяцев с момента начисления.\n\n8. Заключительные положения\n\n8.1. Настоящее Соглашение вступает в силу с момента регистрации Пользователя в Приложении.\n\n8.2. По всем вопросам, связанным с Соглашением, Пользователь может обратиться в службу поддержки Кондитерской.`}
+              </Text>
+            </ScrollView>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => {
+                setAcceptedTerms(true);
+                setShowTermsModal(false);
+              }}
+            >
+              <Text style={styles.modalButtonText}>Принимаю</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -368,15 +387,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     backgroundColor: '#fff',
   },
-  titleGradient: {
+  maskedView: {
+    flexDirection: 'row',
     marginBottom: 40,
   },
-  title: {
+  maskContainer: {
+    backgroundColor: 'transparent',
+  },
+  titleGradient: {
+    width: '100%',
+    height: '100%',
+  },
+  titleMask: {
     fontSize: 36,
     fontWeight: 'bold',
     textAlign: 'center',
     letterSpacing: 1,
     fontFamily: Platform.OS === 'ios' ? 'Poppins-Bold' : 'Poppins',
+    backgroundColor: 'transparent',
   },
   inputContainer: {
     width: '100%',
@@ -455,6 +483,35 @@ const styles = StyleSheet.create({
   eyeIcon: {
     padding: 5,
   },
+  termsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 5,
+    marginBottom: 15,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#FF147A',
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: '#FF147A',
+  },
+  termsText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#333',
+    fontFamily: Platform.OS === 'ios' ? 'Poppins' : 'Poppins',
+  },
+  termsLink: {
+    color: '#FF147A',
+    textDecorationLine: 'underline',
+  },
   registerButton: {
     width: '100%',
     marginBottom: 20,
@@ -473,5 +530,53 @@ const styles = StyleSheet.create({
   loginLink: {
     color: '#FF147A',
     fontSize: 14,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    width: '85%',
+    maxHeight: '80%',
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 15,
+    color: '#333',
+    fontFamily: Platform.OS === 'ios' ? 'Poppins-Bold' : 'Poppins',
+  },
+  modalContent: {
+    maxHeight: 400,
+    marginBottom: 20,
+  },
+  modalText: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#333',
+    fontFamily: Platform.OS === 'ios' ? 'Poppins' : 'Poppins',
+  },
+  modalButton: {
+    backgroundColor: '#FF147A',
+    paddingVertical: 12,
+    borderRadius: 30,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    fontFamily: Platform.OS === 'ios' ? 'Poppins-Semibold' : 'Poppins',
   },
 });
