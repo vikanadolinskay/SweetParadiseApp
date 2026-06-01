@@ -112,7 +112,6 @@ export default function CatalogScreen({ navigation }) {
   };
 
   const handleAddToCart = (product) => {
-    // TODO: добавить в корзину
     alert(`Товар ${product.name} добавлен в корзину`);
   };
 
@@ -128,7 +127,9 @@ export default function CatalogScreen({ navigation }) {
       >
         <Image source={{ uri: imageUrl }} style={styles.image} />
         <View style={styles.cardContent}>
-          <Text style={styles.name} numberOfLines={2}>{item.name}</Text>
+          <Text style={styles.name} numberOfLines={2}>
+            {item.name}
+          </Text>
           <View style={styles.priceRow}>
             {item.discount && item.discount > 0 ? (
               <>
@@ -169,7 +170,6 @@ export default function CatalogScreen({ navigation }) {
     setShowSortMenu(false);
   };
 
-  // Скелетон загрузки
   if (loading && !refreshing) {
     return (
       <View style={styles.center}>
@@ -181,7 +181,6 @@ export default function CatalogScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      {/* Строка поиска */}
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.searchInput}
@@ -192,7 +191,6 @@ export default function CatalogScreen({ navigation }) {
         />
       </View>
 
-      {/* Категории */}
       <FlatList
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -202,7 +200,6 @@ export default function CatalogScreen({ navigation }) {
         contentContainerStyle={styles.categoriesList}
       />
 
-      {/* Кнопка сортировки */}
       <View style={styles.sortContainer}>
         <TouchableOpacity style={styles.sortButton} onPress={() => setShowSortMenu(!showSortMenu)}>
           <Text style={styles.sortButtonText}>Сортировка ▼</Text>
@@ -225,7 +222,6 @@ export default function CatalogScreen({ navigation }) {
         )}
       </View>
 
-      {/* Список товаров */}
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.product_id?.toString() || item.id?.toString()}

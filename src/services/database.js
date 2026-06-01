@@ -9,8 +9,7 @@ let db = null;
 
 const initDatabase = async() => {
     try {
-        // Правильный путь для Expo — из папки assets
-        const asset = Asset.fromModule(require('../../../assets/database/sweet.db'));
+        const asset = Asset.fromModule(require('../../assets/database/sweet.db'));
         await asset.downloadAsync();
 
         const dbPath = `${FileSystem.documentDirectory}SQLite/${DB_NAME}`;
@@ -43,7 +42,7 @@ export const executeQuery = async(sql, params = []) => {
     const database = await getDb();
     if (!database) return [];
     try {
-        return database.execSync(sql, params);
+        return await database.execSync(sql, params);
     } catch (error) {
         console.error('Ошибка запроса:', error);
         return [];
@@ -63,7 +62,7 @@ export const getCartItems = async(userId) => {
     );
 };
 
-export const addToCart = async(userId, productId, quantity = 1) => {
+export const addToCart = async(userId, productId, quantity = 1, customization = null) => {
     const existing = await executeQuery(
         'SELECT * FROM cart_items WHERE user_id = ? AND product_id = ?', [userId, productId]
     );
@@ -74,8 +73,9 @@ export const addToCart = async(userId, productId, quantity = 1) => {
             'UPDATE cart_items SET quantity = ? WHERE user_id = ? AND product_id = ?', [newQuantity, userId, productId]
         );
     } else {
+        const customizationJson = customization ? JSON.stringify(customization) : null;
         await executeQuery(
-            'INSERT INTO cart_items (user_id, product_id, quantity) VALUES (?, ?, ?)', [userId, productId, quantity]
+            'INSERT INTO cart_items (user_id, product_id, quantity, customization) VALUES (?, ?, ?, ?)', [userId, productId, quantity, customizationJson]
         );
     }
     return true;
@@ -91,4 +91,118 @@ export const removeFromCart = async(userId, productId) => {
 export const clearCart = async(userId) => {
     await executeQuery('DELETE FROM cart_items WHERE user_id = ?', [userId]);
     return true;
+};
+
+export const checkEmailExists = async(email) => {
+    const result = await executeQuery(
+        'SELECT 1 FROM users WHERE email = ? LIMIT 1', [email]
+    );
+    return result.length > 0;
+};
+
+export const createUser = async(firebaseUid, email, fullName, phone) => {
+    const existing = await executeQuery(
+        'SELECT 1 FROM users WHERE firebase_uid = ? OR email = ?', [firebaseUid, email]
+    );
+
+    if (existing.length > 0) {
+        return false;
+    }
+
+    await executeQuery(
+        `INSERT INTO users (firebase_uid, email, full_name, phone, loyalty_points, personal_discount, created_at)
+     VALUES (?, ?, ?, ?, 0, 0, datetime('now'))`, [firebaseUid, email, fullName, phone]
+    );
+    return true;
+};
+
+export const getUserByFirebaseUid = async(firebaseUid) => {
+    const result = await executeQuery(
+        'SELECT * FROM users WHERE firebase_uid = ? LIMIT 1', [firebaseUid]
+    );
+    return result.length > 0 ? result[0] : null;
+};
+
+export const getUserByEmail = async(email) => {
+    const result = await executeQuery(
+        'SELECT * FROM users WHERE email = ? LIMIT 1', [email]
+    );
+    return result.length > 0 ? result[0] : null;
+};
+
+export const updateLoyaltyPoints = async(userId, points) => {
+    await executeQuery(
+        'UPDATE users SET loyalty_points = loyalty_points + ? WHERE user_id = ?', [points, userId]
+    );
+};
+
+export const getOrdersByUserId = async(userId) => {
+    return await executeQuery(
+        `SELECT o.*, 
+            (SELECT COUNT(*) FROM order_items WHERE order_id = o.order_id) as items_count
+     FROM orders o
+     WHERE o.user_id = ?
+     ORDER BY o.created_at DESC`, [userId]
+    );
+};
+
+export const getOrderItems = async(orderId) => {
+    return await executeQuery(
+        `SELECT oi.*, p.name, p.price as product_price
+     FROM order_items oi
+     JOIN products p ON oi.product_id = p.product_id
+     WHERE oi.order_id = ?`, [orderId]
+    );
+};
+
+export const createOrder = async(userId, totalAmount, pickupAddress, desiredPickupTime, paymentMethod, items) => {
+    const database = await getDb();
+    if (!database) return null;
+
+    try {
+        await database.execAsync('BEGIN TRANSACTION');
+
+        const orderResult = await executeQuery(
+            `INSERT INTO orders (user_id, status, total_amount, pickup_address, desired_pickup_time, payment_method, created_at, updated_at)
+       VALUES (?, 'pending', ?, ?, ?, ?, datetime('now'), datetime('now'))`, [userId, totalAmount, pickupAddress, desiredPickupTime, paymentMethod]
+        );
+
+        const orderId = orderResult.lastInsertRowId;
+
+        for (const item of items) {
+            const customizationJson = item.customization ? JSON.stringify(item.customization) : null;
+            await executeQuery(
+                `INSERT INTO order_items (order_id, product_id, quantity, price_at_time, customization)
+         VALUES (?, ?, ?, ?, ?)`, [orderId, item.product_id, item.quantity, item.price, customizationJson]
+            );
+        }
+
+        await executeQuery('DELETE FROM cart_items WHERE user_id = ?', [userId]);
+
+        await database.execAsync('COMMIT');
+
+        return orderId;
+    } catch (error) {
+        await database.execAsync('ROLLBACK');
+        console.error('Ошибка создания заказа:', error);
+        return null;
+    }
+};
+
+export const updateOrderStatus = async(orderId, status) => {
+    await executeQuery(
+        'UPDATE orders SET status = ?, updated_at = datetime("now") WHERE order_id = ?', [status, orderId]
+    );
+
+    await executeQuery(
+        `INSERT INTO order_history (order_id, action, description, created_at)
+     VALUES (?, 'status_changed', ?, datetime('now'))`, [orderId, `Статус изменён на ${status}`]
+    );
+};
+
+export const getPromotions = async() => {
+    const now = new Date().toISOString().split('T')[0];
+    return await executeQuery(
+        'SELECT * FROM promotions WHERE is_active = 1 AND start_date <= ? AND end_date >= ?', [now, now]
+    );
 };
