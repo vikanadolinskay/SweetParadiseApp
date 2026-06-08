@@ -51,7 +51,9 @@ export default function LoginScreen({ navigation }) {
           <MaskedView
             style={styles.maskedView}
             maskElement={
-              <Text style={styles.titleMask}>Sweet Paradise</Text>
+              <Text style={styles.titleMask} numberOfLines={1}>
+                Sweet Paradise
+              </Text>
             }
           >
             <LinearGradient
@@ -141,8 +143,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   maskedView: {
-    width: 240,
-    height: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 40,
   },
   titleGradient: {
