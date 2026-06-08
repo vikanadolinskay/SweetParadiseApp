@@ -25,7 +25,7 @@ export const verifyPassword = async (inputPassword, storedHash) => {
   return inputHash === storedHash;
 };
 
-const initDatabase = async () => {
+export const initDatabase = async () => {
   try {
     // Проверяем, существует ли уже БД в документе
     const dbPath = `${FileSystem.documentDirectory}SQLite/${DB_NAME}`;
