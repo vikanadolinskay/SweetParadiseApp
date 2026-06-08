@@ -117,6 +117,7 @@ export default function CatalogScreen({ navigation }) {
 
   const renderProduct = ({ item }) => {
     const finalPrice = getFinalPrice(item);
+    // Используем изображение из БД или заглушку
     const imageUrl = item.image_url || 'https://via.placeholder.com/150?text=No+Image';
 
     return (
@@ -127,9 +128,34 @@ export default function CatalogScreen({ navigation }) {
       >
         <Image source={{ uri: imageUrl }} style={styles.image} />
         <View style={styles.cardContent}>
-          <Text style={styles.name} numberOfLines={2}>
-            {item.name}
-          </Text>
+          {/* Название торта */}
+          <Text style={styles.name}>{item.name}</Text>
+          
+          {/* Начинка (если есть) */}
+          {item.filling && (
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Начинка:</Text>
+              <Text style={styles.detailValue}>{item.filling}</Text>
+            </View>
+          )}
+          
+          {/* Декор (если есть) */}
+          {item.decor && (
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Декор:</Text>
+              <Text style={styles.detailValue}>{item.decor}</Text>
+            </View>
+          )}
+          
+          {/* Калории (если есть) */}
+          {item.calories && (
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Калории:</Text>
+              <Text style={styles.detailValue}>{item.calories} ккал</Text>
+            </View>
+          )}
+          
+          {/* Цена */}
           <View style={styles.priceRow}>
             {item.discount && item.discount > 0 ? (
               <>
@@ -143,9 +169,8 @@ export default function CatalogScreen({ navigation }) {
               <Text style={styles.price}>{item.price} ₽</Text>
             )}
           </View>
-          {item.is_customizable === 1 && (
-            <Text style={styles.customizable}>🎨 Можно настроить</Text>
-          )}
+          
+          {/* Кнопка добавления в корзину */}
           <TouchableOpacity style={styles.addButton} onPress={() => handleAddToCart(item)}>
             <Text style={styles.addButtonText}>В корзину</Text>
           </TouchableOpacity>
@@ -181,6 +206,15 @@ export default function CatalogScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
+      {/* Шапка с названием и контактами (как на изображении) */}
+      <View style={styles.header}>
+        <Text style={styles.logo}>Weddingcake</Text>
+        <Text style={styles.clientMark}>Клиентская марка</Text>
+        <Text style={styles.phone}>00 123 456 789</Text>
+        <Text style={styles.website}>www.yourwebsite.com</Text>
+      </View>
+
+      {/* Поиск */}
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.searchInput}
@@ -191,6 +225,7 @@ export default function CatalogScreen({ navigation }) {
         />
       </View>
 
+      {/* Категории */}
       <FlatList
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -200,6 +235,7 @@ export default function CatalogScreen({ navigation }) {
         contentContainerStyle={styles.categoriesList}
       />
 
+      {/* Сортировка */}
       <View style={styles.sortContainer}>
         <TouchableOpacity style={styles.sortButton} onPress={() => setShowSortMenu(!showSortMenu)}>
           <Text style={styles.sortButtonText}>Сортировка ▼</Text>
@@ -222,6 +258,7 @@ export default function CatalogScreen({ navigation }) {
         )}
       </View>
 
+      {/* Список товаров */}
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.product_id?.toString() || item.id?.toString()}
@@ -246,6 +283,36 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
+  // Стили шапки (как на изображении)
+  header: {
+    alignItems: 'center',
+    paddingTop: 48,
+    paddingBottom: 16,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E6E6E6',
+  },
+  logo: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  clientMark: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 4,
+  },
+  phone: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333',
+    marginTop: 8,
+  },
+  website: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 2,
+  },
   center: {
     flex: 1,
     justifyContent: 'center',
@@ -258,7 +325,7 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     padding: 10,
-    backgroundColor: '#E6E6E6',
+    backgroundColor: '#F5F5F5',
     margin: 10,
     borderRadius: 12,
   },
@@ -360,10 +427,26 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 4,
   },
+  detailRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 2,
+  },
+  detailLabel: {
+    fontSize: 12,
+    color: '#888',
+    width: 55,
+  },
+  detailValue: {
+    fontSize: 12,
+    color: '#555',
+    flex: 1,
+  },
   priceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
+    marginTop: 6,
     marginBottom: 6,
   },
   oldPrice: {
@@ -389,16 +472,11 @@ const styles = StyleSheet.create({
     color: '#FF147A',
     fontWeight: 'bold',
   },
-  customizable: {
-    fontSize: 11,
-    color: '#FF147A',
-    marginTop: 4,
-  },
   addButton: {
     backgroundColor: '#FF147A',
     padding: 8,
     borderRadius: 8,
-    marginTop: 8,
+    marginTop: 4,
     alignItems: 'center',
   },
   addButtonText: {
