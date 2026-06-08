@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { SafeAreaView, StatusBar, View, ActivityIndicator } from 'react-native';
-import AppNavigator from './src/navigation';
+import { SafeAreaView, StatusBar, View, ActivityIndicator, Text } from 'react-native';
+import AppNavigator from './src/navigation';  // Этот путь правильный
 import { initDatabase } from './src/services/database';
 
 export default function App() {
