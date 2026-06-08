@@ -14,7 +14,6 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import MaskedView from '@react-native-masked-view/masked-view';
 import { Ionicons } from '@expo/vector-icons';
 import { authenticateUser } from '../../services/database';
 
@@ -48,21 +47,14 @@ export default function LoginScreen({ navigation }) {
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.container}>
-          <MaskedView
-            style={styles.maskedView}
-            maskElement={
-              <Text style={styles.titleMask} numberOfLines={1}>
-                Sweet Paradise
-              </Text>
-            }
+          <LinearGradient
+            colors={['#FFBCD9', '#FFCBBB']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.titleGradient}
           >
-            <LinearGradient
-              colors={['#FFBCD9', '#FFCBBB']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.titleGradient}
-            />
-          </MaskedView>
+            <Text style={styles.title}>Sweet Paradise</Text>
+          </LinearGradient>
 
           <View style={styles.inputContainer}>
             <TextInput
@@ -142,23 +134,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     backgroundColor: '#fff',
   },
-  maskedView: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 40,
-  },
   titleGradient: {
-    width: '100%',
-    height: '100%',
+    marginBottom: 40,
+    borderRadius: 40,
+    paddingHorizontal: 30,
+    paddingVertical: 15,
   },
-  titleMask: {
-    fontSize: 28,
+  title: {
+    fontSize: 36,
     fontWeight: 'bold',
     textAlign: 'center',
-    letterSpacing: 0.5,
+    letterSpacing: 1,
     fontFamily: Platform.OS === 'ios' ? 'Poppins-Bold' : 'Poppins',
-    backgroundColor: 'transparent',
+    color: '#fff',
   },
   inputContainer: {
     width: '100%',
