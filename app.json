@@ -12,7 +12,7 @@
         "android": {
             "adaptiveIcon": {
                 "backgroundColor": "#FFBCD9",
-                "foregroundImage": "./assets/sweet.png"
+                "foregroundImage": "./assets/sweet.jpg"
             },
             "package": "com.victoria007.SweetParadise"
         },
