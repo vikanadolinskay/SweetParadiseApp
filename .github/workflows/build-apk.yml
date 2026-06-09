@@ -3,21 +3,88 @@ name: Build APK
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm install
-      - run: npx expo prebuild --clean
-      - run: cd android && ./gradlew assembleRelease
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: |
+          npm install --legacy-peer-deps
+          npm install -g expo
+      
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      
+      - name: Setup Gradle
+        run: |
+          mkdir -p ~/.gradle
+          cat > ~/.gradle/init.gradle << 'EOF'
+          allprojects {
+              repositories {
+                  maven { url 'https://maven.aliyun.com/repository/public' }
+                  maven { url 'https://repo.maven.apache.org/maven2' }
+                  maven { url 'https://maven.google.com' }
+                  mavenLocal()
+                  google()
+              }
+          }
+          settingsEvaluated { settings ->
+              settings.pluginManagement {
+                  repositories {
+                      maven { url 'https://maven.aliyun.com/repository/public' }
+                      maven { url 'https://repo.maven.apache.org/maven2' }
+                      maven { url 'https://maven.google.com' }
+                      gradlePluginPortal()
+                      google()
+                  }
+              }
+          }
+          EOF
+      
+      - name: Cache Gradle
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+      
+      - name: Expose Gradle wrapper
+        run: |
+          cd android
+          if [ ! -f gradlew ]; then
+            gradle wrapper
+          fi
+          chmod +x gradlew
+      
+      - name: Prebuild Expo
+        run: npx expo prebuild --clean --non-interactive
+      
+      - name: Build APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace
+      
+      - name: Force rebuild (clear cache)
+        run: echo "CACHEBUST=$(date +%s)" >> $GITHUB_ENV
+      
       - uses: actions/upload-artifact@v4
         with:
           name: app-release
           path: android/app/build/outputs/apk/release/app-release.apk
-      - name: Force rebuild (clear cache)
-        run: echo "CACHEBUST=$(date +%s)" >> $GITHUB_ENV
+          retention-days: 30
