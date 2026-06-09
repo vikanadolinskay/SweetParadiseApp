@@ -27,49 +27,12 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
       
-      - name: Setup Gradle
-        run: |
-          mkdir -p ~/.gradle
-          cat > ~/.gradle/init.gradle << 'EOF'
-          allprojects {
-              repositories {
-                  maven { url 'https://maven.aliyun.com/repository/public' }
-                  maven { url 'https://repo.maven.apache.org/maven2' }
-                  maven { url 'https://maven.google.com' }
-                  mavenLocal()
-                  google()
-              }
-          }
-          settingsEvaluated { settings ->
-              settings.pluginManagement {
-                  repositories {
-                      maven { url 'https://maven.aliyun.com/repository/public' }
-                      maven { url 'https://repo.maven.apache.org/maven2' }
-                      maven { url 'https://maven.google.com' }
-                      gradlePluginPortal()
-                      google()
-                  }
-              }
-          }
-          EOF
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
       
-      - name: Cache Gradle
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
-      
-      - name: Expose Gradle wrapper
-        run: |
-          cd android
-          if [ ! -f gradlew ]; then
-            gradle wrapper
-          fi
-          chmod +x gradlew
+      # Удаляем старые нативные папки
+      - name: Clean native folders
+        run: rm -rf android ios
       
       - name: Prebuild Expo
         run: npx expo prebuild --clean --non-interactive
@@ -79,9 +42,6 @@ jobs:
           cd android
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon --stacktrace
-      
-      - name: Force rebuild (clear cache)
-        run: echo "CACHEBUST=$(date +%s)" >> $GITHUB_ENV
       
       - uses: actions/upload-artifact@v4
         with:
