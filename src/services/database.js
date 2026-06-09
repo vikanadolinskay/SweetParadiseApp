@@ -27,7 +27,6 @@ export const verifyPassword = async (inputPassword, storedHash) => {
 
 export const initDatabase = async () => {
   try {
-    // Проверяем, существует ли уже БД в документе
     const dbPath = `${FileSystem.documentDirectory}SQLite/${DB_NAME}`;
     const dirPath = `${FileSystem.documentDirectory}SQLite`;
     
@@ -40,12 +39,8 @@ export const initDatabase = async () => {
     
     if (!fileInfo.exists) {
       console.log('Копирование базы данных...');
-      
-      // Загружаем ассет
       const asset = Asset.fromModule(require('../../assets/database/sweet.db'));
       await asset.downloadAsync();
-      
-      // Копируем
       await FileSystem.copyAsync({
         from: asset.localUri,
         to: dbPath,
@@ -53,7 +48,6 @@ export const initDatabase = async () => {
       console.log('База данных скопирована');
     }
 
-    // Открываем базу
     db = await SQLite.openDatabaseAsync(DB_NAME);
     console.log('База данных открыта');
     return db;
@@ -68,19 +62,15 @@ const getDb = async () => {
   return await initDatabase();
 };
 
-// Исправленный executeQuery - используем getAllAsync вместо execSync
 export const executeQuery = async (sql, params = []) => {
   const database = await getDb();
   if (!database) return [];
   
   try {
-    // Для запросов SELECT используем getAllAsync
     if (sql.trim().toUpperCase().startsWith('SELECT')) {
       const result = await database.getAllAsync(sql, params);
       return result || [];
-    } 
-    // Для INSERT, UPDATE, DELETE используем runAsync
-    else {
+    } else {
       const result = await database.runAsync(sql, params);
       return { 
         lastInsertRowId: result.lastInsertRowId, 
@@ -95,7 +85,7 @@ export const executeQuery = async (sql, params = []) => {
   }
 };
 
-// Получение всех товаров
+// ========== ТОВАРЫ ==========
 export const getProducts = async () => {
   const products = await executeQuery(
     'SELECT * FROM products WHERE is_available = 1 ORDER BY product_id'
@@ -103,7 +93,6 @@ export const getProducts = async () => {
   return products;
 };
 
-// Получение товара по ID
 export const getProductById = async (productId) => {
   const products = await executeQuery(
     'SELECT * FROM products WHERE product_id = ? AND is_available = 1',
@@ -112,7 +101,6 @@ export const getProductById = async (productId) => {
   return products.length > 0 ? products[0] : null;
 };
 
-// Получение товаров по категории
 export const getProductsByCategory = async (category) => {
   return await executeQuery(
     'SELECT * FROM products WHERE category = ? AND is_available = 1',
@@ -120,32 +108,55 @@ export const getProductsByCategory = async (category) => {
   );
 };
 
-// Получение корзины пользователя
+export const searchProducts = async (query) => {
+  const searchQuery = `%${query}%`;
+  return await executeQuery(
+    `SELECT * FROM products 
+     WHERE is_available = 1 
+     AND (name LIKE ? OR description LIKE ?)
+     ORDER BY name`,
+    [searchQuery, searchQuery]
+  );
+};
+
+// ========== КОРЗИНА (исправлено для cart_item_id) ==========
 export const getCartItems = async (userId) => {
   return await executeQuery(
-    `SELECT c.*, p.name, p.price, p.image_url 
+    `SELECT c.cart_item_id, c.product_id, c.quantity, c.customization,
+            p.name, p.price, p.image_url, p.discount
      FROM cart_items c
      JOIN products p ON c.product_id = p.product_id
-     WHERE c.user_id = ?`,
+     WHERE c.user_id = ?
+     ORDER BY c.added_at DESC`,
     [userId]
   );
 };
 
-// Добавление в корзину
+// Добавление в корзину с проверкой персонализации
 export const addToCart = async (userId, productId, quantity = 1, customization = null) => {
-  const existing = await executeQuery(
-    'SELECT * FROM cart_items WHERE user_id = ? AND product_id = ?',
-    [userId, productId]
-  );
+  const customizationJson = customization ? JSON.stringify(customization) : null;
+  
+  // Проверяем, есть ли уже такой же товар с такой же персонализацией
+  let existing = [];
+  if (customizationJson) {
+    existing = await executeQuery(
+      'SELECT * FROM cart_items WHERE user_id = ? AND product_id = ? AND customization = ?',
+      [userId, productId, customizationJson]
+    );
+  } else {
+    existing = await executeQuery(
+      'SELECT * FROM cart_items WHERE user_id = ? AND product_id = ? AND customization IS NULL',
+      [userId, productId]
+    );
+  }
 
   if (existing.length > 0) {
     const newQuantity = existing[0].quantity + quantity;
     await executeQuery(
-    `UPDATE cart_items SET quantity = ? WHERE cart_item_id = ?`,
+      'UPDATE cart_items SET quantity = ? WHERE cart_item_id = ?',
       [newQuantity, existing[0].cart_item_id]
     );
   } else {
-    const customizationJson = customization ? JSON.stringify(customization) : null;
     await executeQuery(
       `INSERT INTO cart_items (user_id, product_id, quantity, customization, added_at) 
        VALUES (?, ?, ?, ?, datetime('now'))`,
@@ -155,34 +166,34 @@ export const addToCart = async (userId, productId, quantity = 1, customization =
   return true;
 };
 
-// Удаление из корзины
-export const removeFromCart = async (userId, productId) => {
+// Удаление из корзины по cart_item_id (исправлено!)
+export const removeFromCart = async (cartItemId) => {
   await executeQuery(
-    'DELETE FROM cart_items WHERE user_id = ? AND product_id = ?',
-    [userId, productId]
+    'DELETE FROM cart_items WHERE cart_item_id = ?',
+    [cartItemId]
   );
   return true;
 };
 
-// Обновление количества в корзине
-export const updateCartQuantity = async (userId, productId, quantity) => {
+// Обновление количества по cart_item_id (исправлено!)
+export const updateCartQuantity = async (cartItemId, quantity) => {
   if (quantity <= 0) {
-    return await removeFromCart(userId, productId);
+    return await removeFromCart(cartItemId);
   }
   await executeQuery(
-    'UPDATE cart_items SET quantity = ? WHERE user_id = ? AND product_id = ?',
-    [quantity, userId, productId]
+    'UPDATE cart_items SET quantity = ? WHERE cart_item_id = ?',
+    [quantity, cartItemId]
   );
   return true;
 };
 
-// Очистка корзины
+// Очистка всей корзины пользователя
 export const clearCart = async (userId) => {
   await executeQuery('DELETE FROM cart_items WHERE user_id = ?', [userId]);
   return true;
 };
 
-// Проверка существования email
+// ========== ПОЛЬЗОВАТЕЛИ ==========
 export const checkEmailExists = async (email) => {
   const result = await executeQuery(
     'SELECT 1 FROM users WHERE email = ? LIMIT 1',
@@ -191,7 +202,6 @@ export const checkEmailExists = async (email) => {
   return result.length > 0;
 };
 
-// Создание пользователя
 export const createUser = async (email, fullName, phone, password) => {
   const existing = await executeQuery(
     'SELECT 1 FROM users WHERE email = ?',
@@ -213,7 +223,6 @@ export const createUser = async (email, fullName, phone, password) => {
   return { success: true, userId: result.lastInsertRowId };
 };
 
-// Получение пользователя по email
 export const getUserByEmail = async (email) => {
   const result = await executeQuery(
     'SELECT * FROM users WHERE email = ? LIMIT 1',
@@ -222,7 +231,15 @@ export const getUserByEmail = async (email) => {
   return result.length > 0 ? result[0] : null;
 };
 
-// Аутентификация пользователя
+export const getUserById = async (userId) => {
+  const result = await executeQuery(
+    `SELECT user_id, email, full_name, phone, role, loyalty_points, personal_discount, created_at 
+     FROM users WHERE user_id = ? LIMIT 1`,
+    [userId]
+  );
+  return result.length > 0 ? result[0] : null;
+};
+
 export const authenticateUser = async (email, password) => {
   const user = await getUserByEmail(email);
   if (!user) {
@@ -234,12 +251,10 @@ export const authenticateUser = async (email, password) => {
     return { success: false, error: 'Неверный пароль' };
   }
 
-  // Убираем password_hash из возвращаемого объекта
   const { password_hash, ...userWithoutPassword } = user;
   return { success: true, user: userWithoutPassword };
 };
 
-// Обновление бонусных баллов
 export const updateLoyaltyPoints = async (userId, points) => {
   await executeQuery(
     'UPDATE users SET loyalty_points = loyalty_points + ? WHERE user_id = ?',
@@ -247,7 +262,7 @@ export const updateLoyaltyPoints = async (userId, points) => {
   );
 };
 
-// Получение заказов пользователя
+// ========== ЗАКАЗЫ ==========
 export const getOrdersByUserId = async (userId) => {
   const orders = await executeQuery(
     `SELECT o.*, 
@@ -258,7 +273,6 @@ export const getOrdersByUserId = async (userId) => {
     [userId]
   );
   
-  // Для каждого заказа получаем позиции
   for (const order of orders) {
     order.items = await getOrderItems(order.order_id);
   }
@@ -266,7 +280,6 @@ export const getOrdersByUserId = async (userId) => {
   return orders;
 };
 
-// Получение позиций заказа
 export const getOrderItems = async (orderId) => {
   return await executeQuery(
     `SELECT oi.*, p.name, p.image_url
@@ -277,7 +290,6 @@ export const getOrderItems = async (orderId) => {
   );
 };
 
-// Создание заказа
 export const createOrder = async (userId, totalAmount, pickupAddress, desiredPickupTime, paymentMethod, items) => {
   const database = await getDb();
   if (!database) return null;
@@ -302,10 +314,8 @@ export const createOrder = async (userId, totalAmount, pickupAddress, desiredPic
       );
     }
 
-    // Очищаем корзину
-    await executeQuery('DELETE FROM cart_items WHERE user_id = ?', [userId]);
+    await clearCart(userId);
     
-    // Добавляем запись в историю
     await executeQuery(
       `INSERT INTO order_history (order_id, action, description, created_at)
        VALUES (?, 'created', 'Заказ создан', datetime('now'))`,
@@ -313,7 +323,6 @@ export const createOrder = async (userId, totalAmount, pickupAddress, desiredPic
     );
 
     await database.execAsync('COMMIT');
-
     return orderId;
   } catch (error) {
     await database.execAsync('ROLLBACK');
@@ -322,7 +331,6 @@ export const createOrder = async (userId, totalAmount, pickupAddress, desiredPic
   }
 };
 
-// Обновление статуса заказа
 export const updateOrderStatus = async (orderId, status) => {
   await executeQuery(
     'UPDATE orders SET status = ?, updated_at = datetime("now") WHERE order_id = ?',
@@ -336,7 +344,7 @@ export const updateOrderStatus = async (orderId, status) => {
   );
 };
 
-// Получение активных акций
+// ========== АКЦИИ ==========
 export const getPromotions = async () => {
   const now = new Date().toISOString().split('T')[0];
   return await executeQuery(
@@ -347,29 +355,7 @@ export const getPromotions = async () => {
   );
 };
 
-// Получение пользователя по ID
-export const getUserById = async (userId) => {
-  const result = await executeQuery(
-    `SELECT user_id, email, full_name, phone, role, loyalty_points, personal_discount, created_at 
-     FROM users WHERE user_id = ? LIMIT 1`,
-    [userId]
-  );
-  return result.length > 0 ? result[0] : null;
-};
-
-// Поиск товаров
-export const searchProducts = async (query) => {
-  const searchQuery = `%${query}%`;
-  return await executeQuery(
-    `SELECT * FROM products 
-     WHERE is_available = 1 
-     AND (name LIKE ? OR description LIKE ? OR filling LIKE ?)
-     ORDER BY name`,
-    [searchQuery, searchQuery, searchQuery]
-  );
-};
-
-// Получение популярных товаров
+// ========== ПОПУЛЯРНЫЕ ТОВАРЫ ==========
 export const getPopularProducts = async (limit = 10) => {
   return await executeQuery(
     `SELECT p.*, COUNT(oi.order_item_id) as order_count
@@ -388,6 +374,7 @@ export default {
   getProducts,
   getProductById,
   getProductsByCategory,
+  searchProducts,
   getCartItems,
   addToCart,
   removeFromCart,
@@ -396,6 +383,7 @@ export default {
   checkEmailExists,
   createUser,
   getUserByEmail,
+  getUserById,
   authenticateUser,
   updateLoyaltyPoints,
   getOrdersByUserId,
@@ -403,7 +391,5 @@ export default {
   createOrder,
   updateOrderStatus,
   getPromotions,
-  getUserById,
-  searchProducts,
   getPopularProducts,
 };
