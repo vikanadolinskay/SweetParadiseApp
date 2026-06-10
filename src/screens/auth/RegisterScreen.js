@@ -1,5 +1,3 @@
-// src/screens/auth/RegisterScreen.js
-// @ts-nocheck
 import React, { useState } from 'react';
 import {
   View,
@@ -12,10 +10,10 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createUser, checkEmailExists } from '../../services/database';
 
 export default function RegisterScreen({ navigation }) {
@@ -28,9 +26,20 @@ export default function RegisterScreen({ navigation }) {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  
+  // Для модального окна с кодом
+  const [modalVisible, setModalVisible] = useState(false);
+  const [generatedCode, setGeneratedCode] = useState('');
+  const [enteredCode, setEnteredCode] = useState('');
+  const [tempUserData, setTempUserData] = useState(null);
 
-  const handleRegister = async () => {
-    // Валидация полей
+  // Генерация случайного 6-значного кода
+  const generateCode = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  };
+
+  // Первый шаг: проверка полей и отправка кода
+  const handleSendCode = () => {
     if (!fullName || !phone || !email || !password || !confirmPassword) {
       Alert.alert('Ошибка', 'Заполните все поля');
       return;
@@ -51,33 +60,50 @@ export default function RegisterScreen({ navigation }) {
       return;
     }
 
-    // Валидация email
     const emailRegex = /^[^\s@]+@([^\s@.,]+\.)+[^\s@.,]{2,}$/;
     if (!emailRegex.test(email)) {
       Alert.alert('Ошибка', 'Введите корректный email');
       return;
     }
 
+    // Сохраняем данные пользователя
+    setTempUserData({ fullName, phone, email, password });
+    
+    // Генерируем и показываем код
+    const code = generateCode();
+    setGeneratedCode(code);
+    setEnteredCode('');
+    setModalVisible(true);
+  };
+
+  // Второй шаг: подтверждение кода и регистрация
+  const handleConfirmCode = async () => {
+    if (enteredCode !== generatedCode) {
+      Alert.alert('Ошибка', 'Неверный код подтверждения');
+      return;
+    }
+
+    setModalVisible(false);
     setLoading(true);
 
-    // Проверяем, существует ли email
-    const emailExists = await checkEmailExists(email);
+    const emailExists = await checkEmailExists(tempUserData.email);
     if (emailExists) {
       Alert.alert('Ошибка', 'Пользователь с таким email уже существует');
       setLoading(false);
       return;
     }
 
-    const result = await createUser(email, fullName, phone, password);
+    const result = await createUser(
+      tempUserData.email, 
+      tempUserData.fullName, 
+      tempUserData.phone, 
+      tempUserData.password
+    );
     setLoading(false);
 
     if (result.success) {
-      // Автоматический вход после регистрации (как в ТЗ)
       Alert.alert('Успешно', 'Регистрация прошла успешно!', [
-        { 
-          text: 'OK', 
-          onPress: () => navigation.navigate('Login')
-        }
+        { text: 'OK', onPress: () => navigation.navigate('Login') }
       ]);
     } else {
       Alert.alert('Ошибка', result.error || 'Не удалось создать аккаунт');
@@ -91,14 +117,14 @@ export default function RegisterScreen({ navigation }) {
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.container}>
-          {/* Градиентный текст без фона */}
+          {/* Градиентный текст Sweet Paradise - БЕЗ ФОНА */}
           <LinearGradient
-            colors={['#FFBCD9', '#FFCBBB']}
+            colors={['#FF147A', '#FF6B6B', '#FFB347']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.gradientTextContainer}
           >
-            <Text style={styles.title}>Sweet Paradise</Text>
+            <Text style={styles.gradientTitle}>Sweet Paradise</Text>
           </LinearGradient>
 
           <View style={styles.inputContainer}>
@@ -188,11 +214,11 @@ export default function RegisterScreen({ navigation }) {
 
           <TouchableOpacity
             style={styles.registerButton}
-            onPress={handleRegister}
+            onPress={handleSendCode}
             disabled={loading}
           >
             <LinearGradient
-              colors={['#FFBCD9', '#FFCBBB']}
+              colors={['#FF147A', '#FF6B6B', '#FFB347']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.gradientButton}
@@ -200,7 +226,7 @@ export default function RegisterScreen({ navigation }) {
               {loading ? (
                 <ActivityIndicator color="#fff" size="small" />
               ) : (
-                <Text style={styles.registerButtonText}>Зарегистрироваться</Text>
+                <Text style={styles.registerButtonText}>Получить код</Text>
               )}
             </LinearGradient>
           </TouchableOpacity>
@@ -210,6 +236,44 @@ export default function RegisterScreen({ navigation }) {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Модальное окно для ввода кода */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <LinearGradient
+              colors={['#FF147A', '#FF6B6B', '#FFB347']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.modalGradient}
+            >
+              <Text style={styles.modalTitle}>Подтверждение</Text>
+              <Text style={styles.modalText}>Введите код подтверждения:</Text>
+              <Text style={styles.modalCode}>{generatedCode}</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Введите код"
+                placeholderTextColor="#ccc"
+                keyboardType="number-pad"
+                value={enteredCode}
+                onChangeText={setEnteredCode}
+                maxLength={6}
+              />
+              <TouchableOpacity style={styles.modalButton} onPress={handleConfirmCode}>
+                <Text style={styles.modalButtonText}>Подтвердить</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setModalVisible(false)}>
+                <Text style={styles.modalClose}>Закрыть</Text>
+              </TouchableOpacity>
+            </LinearGradient>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -228,8 +292,9 @@ const styles = StyleSheet.create({
   },
   gradientTextContainer: {
     marginBottom: 30,
+    backgroundColor: 'transparent',
   },
-  title: {
+  gradientTitle: {
     fontSize: 36,
     fontWeight: 'bold',
     textAlign: 'center',
@@ -322,5 +387,64 @@ const styles = StyleSheet.create({
     color: '#D2691E',
     fontSize: 14,
     fontFamily: Platform.OS === 'ios' ? 'Poppins' : 'Poppins',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '80%',
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  modalGradient: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 15,
+  },
+  modalText: {
+    fontSize: 14,
+    color: '#fff',
+    marginBottom: 10,
+  },
+  modalCode: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#fff',
+    letterSpacing: 4,
+    marginBottom: 15,
+  },
+  modalInput: {
+    width: '100%',
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 18,
+    textAlign: 'center',
+    marginBottom: 15,
+  },
+  modalButton: {
+    backgroundColor: '#fff',
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 25,
+    marginBottom: 10,
+  },
+  modalButtonText: {
+    color: '#FF147A',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  modalClose: {
+    color: '#fff',
+    fontSize: 14,
+    marginTop: 5,
   },
 });

@@ -1,6 +1,4 @@
-// src/screens/auth/RegisterScreen.js
-// @ts-nocheck
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,53 +14,40 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createUser, checkEmailExists } from '../../services/database';
+import { authenticateUser } from '../../services/database';
 
-export default function RegisterScreen({ navigation }) {
-  const [fullName, setFullName] = useState('');
-  const [phone, setPhone] = useState('');
+export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const handleRegister = async () => {
-    if (!fullName || !phone || !email || !password || !confirmPassword) {
+  useEffect(() => {
+    const checkSession = async () => {
+      const isLoggedIn = await AsyncStorage.getItem('isLoggedIn');
+      if (isLoggedIn === 'true') {
+        navigation.replace('ClientTabs');
+      }
+    };
+    checkSession();
+  }, []);
+
+  const handleLogin = async () => {
+    if (!email || !password) {
       Alert.alert('Ошибка', 'Заполните все поля');
       return;
     }
 
-    if (password !== confirmPassword) {
-      Alert.alert('Ошибка', 'Пароли не совпадают');
-      return;
-    }
-
-    if (password.length < 6) {
-      Alert.alert('Ошибка', 'Пароль должен быть не менее 6 символов');
-      return;
-    }
-
     setLoading(true);
-
-    // Проверяем, существует ли email
-    const emailExists = await checkEmailExists(email);
-    if (emailExists) {
-      Alert.alert('Ошибка', 'Пользователь с таким email уже существует');
-      setLoading(false);
-      return;
-    }
-
-    const result = await createUser(email, fullName, phone, password);
+    const result = await authenticateUser(email, password);
     setLoading(false);
 
     if (result.success) {
-      Alert.alert('Успешно', 'Регистрация прошла успешно!', [
-        { text: 'OK', onPress: () => navigation.navigate('Login') }
-      ]);
+      await AsyncStorage.setItem('user', JSON.stringify(result.user));
+      await AsyncStorage.setItem('isLoggedIn', 'true');
+      navigation.replace('ClientTabs');
     } else {
-      Alert.alert('Ошибка', result.error);
+      Alert.alert('Ошибка входа', result.error);
     }
   };
 
@@ -73,34 +58,17 @@ export default function RegisterScreen({ navigation }) {
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.container}>
-          {/* Градиентный текст без фона */}
+          {/* Градиентный текст Sweet Paradise - БЕЗ ФОНА */}
           <LinearGradient
-            colors={['#FFBCD9', '#FFCBBB']}
+            colors={['#FF147A', '#FF6B6B', '#FFB347']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.gradientTextContainer}
           >
-            <Text style={styles.title}>Sweet Paradise</Text>
+            <Text style={styles.gradientTitle}>Sweet Paradise</Text>
           </LinearGradient>
 
           <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.input}
-              placeholder="ФИО"
-              placeholderTextColor="#828282"
-              value={fullName}
-              onChangeText={setFullName}
-              editable={!loading}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Телефон"
-              placeholderTextColor="#828282"
-              value={phone}
-              onChangeText={setPhone}
-              keyboardType="phone-pad"
-              editable={!loading}
-            />
             <TextInput
               style={styles.input}
               placeholder="Email"
@@ -132,36 +100,15 @@ export default function RegisterScreen({ navigation }) {
                 />
               </TouchableOpacity>
             </View>
-            <View style={styles.passwordWrapper}>
-              <TextInput
-                style={styles.passwordInput}
-                placeholder="Подтвердите пароль"
-                placeholderTextColor="#828282"
-                secureTextEntry={!showConfirmPassword}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                editable={!loading}
-              />
-              <TouchableOpacity
-                style={styles.eyeIcon}
-                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-              >
-                <Ionicons
-                  name={showConfirmPassword ? 'eye-off' : 'eye'}
-                  size={22}
-                  color="#828282"
-                />
-              </TouchableOpacity>
-            </View>
           </View>
 
           <TouchableOpacity
-            style={styles.registerButton}
-            onPress={handleRegister}
+            style={styles.loginButton}
+            onPress={handleLogin}
             disabled={loading}
           >
             <LinearGradient
-              colors={['#FFBCD9', '#FFCBBB']}
+              colors={['#FF147A', '#FF6B6B', '#FFB347']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.gradientButton}
@@ -169,13 +116,17 @@ export default function RegisterScreen({ navigation }) {
               {loading ? (
                 <ActivityIndicator color="#fff" size="small" />
               ) : (
-                <Text style={styles.registerButtonText}>Зарегистрироваться</Text>
+                <Text style={styles.loginButtonText}>Войти</Text>
               )}
             </LinearGradient>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => navigation.navigate('Login')} disabled={loading}>
-            <Text style={styles.loginLink}>Уже есть аккаунт? Войти</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Register')} disabled={loading}>
+            <Text style={styles.registerLink}>Зарегистрироваться</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => Alert.alert('Восстановление', 'Свяжитесь с администратором для сброса пароля')}>
+            <Text style={styles.forgotLink}>Забыли пароль?</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -196,10 +147,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   gradientTextContainer: {
-    marginBottom: 30,
+    marginBottom: 40,
+    backgroundColor: 'transparent',
   },
-  title: {
-    fontSize: 36,
+  gradientTitle: {
+    fontSize: 42,
     fontWeight: 'bold',
     textAlign: 'center',
     letterSpacing: 1,
@@ -216,7 +168,7 @@ const styles = StyleSheet.create({
     padding: 15,
     fontSize: 16,
     color: '#333',
-    marginBottom: 12,
+    marginBottom: 15,
     fontFamily: Platform.OS === 'ios' ? 'Poppins' : 'Poppins',
   },
   passwordWrapper: {
@@ -225,7 +177,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F5F5',
     borderRadius: 12,
     paddingHorizontal: 15,
-    marginBottom: 12,
   },
   passwordInput: {
     flex: 1,
@@ -237,7 +188,7 @@ const styles = StyleSheet.create({
   eyeIcon: {
     padding: 5,
   },
-  registerButton: {
+  loginButton: {
     width: '100%',
     marginBottom: 15,
     borderRadius: 30,
@@ -247,15 +198,21 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
   },
-  registerButtonText: {
+  loginButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
     fontFamily: Platform.OS === 'ios' ? 'Poppins-Semibold' : 'Poppins',
   },
-  loginLink: {
+  registerLink: {
     color: '#D2691E',
     fontSize: 14,
+    marginBottom: 15,
+    fontFamily: Platform.OS === 'ios' ? 'Poppins' : 'Poppins',
+  },
+  forgotLink: {
+    color: '#828282',
+    fontSize: 12,
     fontFamily: Platform.OS === 'ios' ? 'Poppins' : 'Poppins',
   },
 });
