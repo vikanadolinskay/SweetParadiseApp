@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { MaskedView } from '@react-native-masked-view/masked-view';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authenticateUser } from '../../services/database';
@@ -58,15 +59,19 @@ export default function LoginScreen({ navigation }) {
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.container}>
-          {/* Градиентный текст Sweet Paradise - БЕЗ ФОНА */}
-          <LinearGradient
-            colors={['#FF147A', '#FF6B6B', '#FFB347']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.gradientTextContainer}
+          {/* Градиентный текст - ТОЛЬКО БУКВЫ */}
+          <MaskedView
+            maskElement={
+              <Text style={styles.title}>Sweet Paradise</Text>
+            }
           >
-            <Text style={styles.gradientTitle}>Sweet Paradise</Text>
-          </LinearGradient>
+            <LinearGradient
+              colors={['#FFBCD9', '#FFCBBB']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.gradientMask}
+            />
+          </MaskedView>
 
           <View style={styles.inputContainer}>
             <TextInput
@@ -108,7 +113,7 @@ export default function LoginScreen({ navigation }) {
             disabled={loading}
           >
             <LinearGradient
-              colors={['#FF147A', '#FF6B6B', '#FFB347']}
+              colors={['#FFBCD9', '#FFCBBB']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.gradientButton}
@@ -146,17 +151,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     backgroundColor: '#fff',
   },
-  gradientTextContainer: {
-    marginBottom: 40,
-    backgroundColor: 'transparent',
-  },
-  gradientTitle: {
+  title: {
     fontSize: 42,
     fontWeight: 'bold',
     textAlign: 'center',
     letterSpacing: 1,
     fontFamily: Platform.OS === 'ios' ? 'Poppins-Bold' : 'Poppins',
-    color: '#fff',
+    color: '#000',
+  },
+  gradientMask: {
+    flex: 1,
+    height: 55,
   },
   inputContainer: {
     width: '100%',

@@ -13,6 +13,7 @@ import {
   Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { MaskedView } from '@react-native-masked-view/masked-view';
 import { Ionicons } from '@expo/vector-icons';
 import { createUser, checkEmailExists } from '../../services/database';
 
@@ -27,18 +28,17 @@ export default function RegisterScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   
-  // Для модального окна с кодом
+  // Модальные окна
   const [modalVisible, setModalVisible] = useState(false);
+  const [termsModalVisible, setTermsModalVisible] = useState(false);
   const [generatedCode, setGeneratedCode] = useState('');
   const [enteredCode, setEnteredCode] = useState('');
   const [tempUserData, setTempUserData] = useState(null);
 
-  // Генерация случайного 6-значного кода
   const generateCode = () => {
     return Math.floor(100000 + Math.random() * 900000).toString();
   };
 
-  // Первый шаг: проверка полей и отправка кода
   const handleSendCode = () => {
     if (!fullName || !phone || !email || !password || !confirmPassword) {
       Alert.alert('Ошибка', 'Заполните все поля');
@@ -66,17 +66,13 @@ export default function RegisterScreen({ navigation }) {
       return;
     }
 
-    // Сохраняем данные пользователя
     setTempUserData({ fullName, phone, email, password });
-    
-    // Генерируем и показываем код
     const code = generateCode();
     setGeneratedCode(code);
     setEnteredCode('');
     setModalVisible(true);
   };
 
-  // Второй шаг: подтверждение кода и регистрация
   const handleConfirmCode = async () => {
     if (enteredCode !== generatedCode) {
       Alert.alert('Ошибка', 'Неверный код подтверждения');
@@ -117,15 +113,19 @@ export default function RegisterScreen({ navigation }) {
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.container}>
-          {/* Градиентный текст Sweet Paradise - БЕЗ ФОНА */}
-          <LinearGradient
-            colors={['#FF147A', '#FF6B6B', '#FFB347']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.gradientTextContainer}
+          {/* Градиентный текст Sweet Paradise - ТОЛЬКО БУКВЫ */}
+          <MaskedView
+            maskElement={
+              <Text style={styles.title}>Sweet Paradise</Text>
+            }
           >
-            <Text style={styles.gradientTitle}>Sweet Paradise</Text>
-          </LinearGradient>
+            <LinearGradient
+              colors={['#FFBCD9', '#FFCBBB']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.gradientMask}
+            />
+          </MaskedView>
 
           <View style={styles.inputContainer}>
             <TextInput
@@ -199,7 +199,7 @@ export default function RegisterScreen({ navigation }) {
             </View>
           </View>
 
-          {/* Чекбокс принятия условий */}
+          {/* Чекбокс с открытием соглашения */}
           <TouchableOpacity 
             style={styles.termsContainer}
             onPress={() => setAcceptedTerms(!acceptedTerms)}
@@ -208,7 +208,10 @@ export default function RegisterScreen({ navigation }) {
               {acceptedTerms && <Text style={styles.checkboxTick}>✓</Text>}
             </View>
             <Text style={styles.termsText}>
-              Я принимаю условия <Text style={styles.termsLink}>Пользовательского соглашения</Text>
+              Я принимаю условия{' '}
+              <Text style={styles.termsLink} onPress={() => setTermsModalVisible(true)}>
+                Пользовательского соглашения
+              </Text>
             </Text>
           </TouchableOpacity>
 
@@ -218,7 +221,7 @@ export default function RegisterScreen({ navigation }) {
             disabled={loading}
           >
             <LinearGradient
-              colors={['#FF147A', '#FF6B6B', '#FFB347']}
+              colors={['#FFBCD9', '#FFCBBB']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.gradientButton}
@@ -237,7 +240,7 @@ export default function RegisterScreen({ navigation }) {
         </View>
       </ScrollView>
 
-      {/* Модальное окно для ввода кода */}
+      {/* Модальное окно с кодом */}
       <Modal
         animationType="fade"
         transparent={true}
@@ -246,31 +249,61 @@ export default function RegisterScreen({ navigation }) {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <LinearGradient
-              colors={['#FF147A', '#FF6B6B', '#FFB347']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.modalGradient}
-            >
-              <Text style={styles.modalTitle}>Подтверждение</Text>
-              <Text style={styles.modalText}>Введите код подтверждения:</Text>
-              <Text style={styles.modalCode}>{generatedCode}</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="Введите код"
-                placeholderTextColor="#ccc"
-                keyboardType="number-pad"
-                value={enteredCode}
-                onChangeText={setEnteredCode}
-                maxLength={6}
-              />
-              <TouchableOpacity style={styles.modalButton} onPress={handleConfirmCode}>
-                <Text style={styles.modalButtonText}>Подтвердить</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Text style={styles.modalClose}>Закрыть</Text>
-              </TouchableOpacity>
-            </LinearGradient>
+            <Text style={styles.modalTitle}>Подтверждение</Text>
+            <Text style={styles.modalText}>Введите код подтверждения:</Text>
+            <Text style={styles.modalCode}>{generatedCode}</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Введите код"
+              placeholderTextColor="#ccc"
+              keyboardType="number-pad"
+              value={enteredCode}
+              onChangeText={setEnteredCode}
+              maxLength={6}
+            />
+            <TouchableOpacity style={styles.modalButton} onPress={handleConfirmCode}>
+              <Text style={styles.modalButtonText}>Подтвердить</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setModalVisible(false)}>
+              <Text style={styles.modalClose}>Закрыть</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Модальное окно с текстом соглашения */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={termsModalVisible}
+        onRequestClose={() => setTermsModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.termsModalContent}>
+            <Text style={styles.termsModalTitle}>Пользовательское соглашение</Text>
+            <ScrollView style={styles.termsScrollView}>
+              <Text style={styles.termsModalText}>
+                1. Общие положения{"\n\n"}
+                1.1. Настоящее Пользовательское соглашение (далее — Соглашение) регулирует отношения между Sweet Paradise (далее — Компания) и пользователем мобильного приложения Sweet Paradise (далее — Пользователь).{"\n\n"}
+                1.2. Регистрируясь в приложении, Пользователь подтверждает свое согласие с условиями настоящего Соглашения.{"\n\n"}
+                2. Права и обязанности сторон{"\n\n"}
+                2.1. Пользователь обязуется предоставлять достоверную информацию при регистрации.{"\n\n"}
+                2.2. Пользователь имеет право заказывать кондитерские изделия в соответствии с каталогом приложения.{"\n\n"}
+                2.3. Компания обязуется обрабатывать персональные данные Пользователя в соответствии с Федеральным законом № 152-ФЗ «О персональных данных».{"\n\n"}
+                2.4. Компания имеет право изменять условия Соглашения в одностороннем порядке.{"\n\n"}
+                3. Ответственность{"\n\n"}
+                3.1. Компания не несет ответственности за задержки в доставке, связанные с действиями третьих лиц.{"\n\n"}
+                4. Конфиденциальность{"\n\n"}
+                4.1. Компания обязуется не передавать персональные данные Пользователя третьим лицам без его согласия.{"\n\n"}
+                5. Заключительные положения{"\n\n"}
+                5.1. Соглашение вступает в силу с момента регистрации Пользователя в приложении.{"\n\n"}
+                5.2. Все споры решаются в соответствии с законодательством РФ.{"\n\n"}
+                © Sweet Paradise, 2026
+              </Text>
+            </ScrollView>
+            <TouchableOpacity style={styles.termsCloseButton} onPress={() => setTermsModalVisible(false)}>
+              <Text style={styles.termsCloseButtonText}>Закрыть</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -290,17 +323,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     backgroundColor: '#fff',
   },
-  gradientTextContainer: {
-    marginBottom: 30,
-    backgroundColor: 'transparent',
-  },
-  gradientTitle: {
+  title: {
     fontSize: 36,
     fontWeight: 'bold',
     textAlign: 'center',
     letterSpacing: 1,
     fontFamily: Platform.OS === 'ios' ? 'Poppins-Bold' : 'Poppins',
-    color: '#fff',
+    color: '#000', // цвет не важен, т.к. это маска
+  },
+  gradientMask: {
+    flex: 1,
+    height: 50,
   },
   inputContainer: {
     width: '100%',
@@ -396,34 +429,32 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '80%',
+    backgroundColor: '#fff',
     borderRadius: 20,
-    overflow: 'hidden',
-  },
-  modalGradient: {
     padding: 20,
     alignItems: 'center',
   },
   modalTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#fff',
+    color: '#D2691E',
     marginBottom: 15,
   },
   modalText: {
     fontSize: 14,
-    color: '#fff',
+    color: '#666',
     marginBottom: 10,
   },
   modalCode: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#fff',
+    color: '#D2691E',
     letterSpacing: 4,
     marginBottom: 15,
   },
   modalInput: {
     width: '100%',
-    backgroundColor: '#fff',
+    backgroundColor: '#F5F5F5',
     borderRadius: 10,
     padding: 12,
     fontSize: 18,
@@ -431,20 +462,55 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   modalButton: {
-    backgroundColor: '#fff',
+    backgroundColor: '#D2691E',
     paddingVertical: 12,
     paddingHorizontal: 30,
     borderRadius: 25,
     marginBottom: 10,
   },
   modalButtonText: {
-    color: '#FF147A',
+    color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
   },
   modalClose: {
-    color: '#fff',
+    color: '#666',
     fontSize: 14,
     marginTop: 5,
+  },
+  // Стили для окна соглашения
+  termsModalContent: {
+    width: '85%',
+    maxHeight: '80%',
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 20,
+  },
+  termsModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#D2691E',
+    textAlign: 'center',
+    marginBottom: 15,
+  },
+  termsScrollView: {
+    maxHeight: 400,
+  },
+  termsModalText: {
+    fontSize: 12,
+    color: '#333',
+    lineHeight: 18,
+  },
+  termsCloseButton: {
+    backgroundColor: '#D2691E',
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 15,
+  },
+  termsCloseButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 });
