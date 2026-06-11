@@ -13,7 +13,6 @@ import {
   Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { MaskedView } from '@react-native-masked-view/masked-view';
 import { Ionicons } from '@expo/vector-icons';
 import { createUser, checkEmailExists } from '../../services/database';
 
@@ -112,21 +111,8 @@ export default function RegisterScreen({ navigation }) {
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.container}>
-          <MaskedView
-            style={styles.maskedView}
-            maskElement={
-              <View style={styles.maskContainer}>
-                <Text style={styles.title}>Sweet Paradise</Text>
-              </View>
-            }
-          >
-            <LinearGradient
-              colors={['#FFBCD9', '#FFCBBB']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.gradientMask}
-            />
-          </MaskedView>
+          {/* Обычный розовый текст */}
+          <Text style={styles.title}>Sweet Paradise</Text>
 
           <View style={styles.inputContainer}>
             <TextInput
@@ -321,26 +307,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     backgroundColor: '#fff',
   },
-  maskedView: {
-    marginBottom: 30,
-    alignSelf: 'center',
-  },
-  maskContainer: {
-    backgroundColor: 'transparent',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   title: {
     fontSize: 36,
     fontWeight: 'bold',
     textAlign: 'center',
     letterSpacing: 1,
     fontFamily: Platform.OS === 'ios' ? 'Poppins-Bold' : 'Poppins',
-    color: '#000',
-  },
-  gradientMask: {
-    width: 280,
-    height: 50,
+    color: '#FFBCD9',
+    marginBottom: 30,
   },
   inputContainer: {
     width: '100%',
