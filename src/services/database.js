@@ -32,6 +32,20 @@ export const initDatabase = async () => {
 
     db = await SQLite.openDatabaseAsync(DB_NAME);
     console.log('[DB] База данных открыта');
+
+    // Создаём тестового пользователя, если его нет
+    try {
+      const testUser = await executeQuery("SELECT * FROM users WHERE email = 'test@sweet.ru'");
+      if (testUser.length === 0) {
+        await executeQuery(
+          "INSERT INTO users (email, full_name, phone, password_hash, role) VALUES ('test@sweet.ru', 'Тестовый Пользователь', '+79001234567', '123456', 'client')"
+        );
+        console.log('[DB] Тестовый пользователь создан');
+      }
+    } catch (err) {
+      console.log('[DB] Проверка тестового пользователя:', err);
+    }
+
     return db;
   } catch (error) {
     console.error('[DB] Ошибка инициализации:', error);
@@ -54,6 +68,7 @@ export const executeQuery = async (sql, params = []) => {
       return result || [];
     } else {
       const result = await database.runAsync(sql, params);
+      console.log('[QUERY] Результат runAsync:', result);
       return { 
         lastInsertRowId: result.lastInsertRowId, 
         changes: result.changes 
@@ -196,6 +211,7 @@ export const createUser = async (email, fullName, phone, password) => {
   );
   
   console.log('[CREATE] Пользователь создан, userId:', result.lastInsertRowId);
+  console.log('[CREATE] Результат запроса:', result);
   return { success: true, userId: result.lastInsertRowId };
 };
 
@@ -204,6 +220,7 @@ export const getUserByEmail = async (email) => {
     'SELECT * FROM users WHERE email = ? LIMIT 1',
     [email]
   );
+  console.log('[GET_USER] Email:', email, 'Результат:', result);
   return result.length > 0 ? result[0] : null;
 };
 

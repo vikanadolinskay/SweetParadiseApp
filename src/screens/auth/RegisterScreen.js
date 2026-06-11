@@ -206,7 +206,7 @@ export default function RegisterScreen({ navigation }) {
             disabled={loading}
           >
             <LinearGradient
-              colors={['#FF147A', '#FF6B6B']}
+              colors={['#FFBCD9', '#FFCBBB']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.gradientButton}
@@ -247,7 +247,7 @@ export default function RegisterScreen({ navigation }) {
             />
             <TouchableOpacity style={styles.modalButton} onPress={handleConfirmCode}>
               <LinearGradient
-                colors={['#FF147A', '#FF6B6B']}
+                colors={['#FFBCD9', '#FFCBBB']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.modalGradientButton}
@@ -291,7 +291,10 @@ export default function RegisterScreen({ navigation }) {
                 © Sweet Paradise, 2026
               </Text>
             </ScrollView>
-            <TouchableOpacity style={styles.termsCloseButton} onPress={() => setTermsModalVisible(false)}>
+            <TouchableOpacity 
+              style={styles.termsCloseButton} 
+              onPress={() => setTermsModalVisible(false)}
+            >
               <Text style={styles.termsCloseButtonText}>Закрыть</Text>
             </TouchableOpacity>
           </View>
@@ -364,13 +367,13 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 4,
     borderWidth: 2,
-    borderColor: '#FF147A',
+    borderColor: '#FFBCD9',
     marginRight: 10,
     justifyContent: 'center',
     alignItems: 'center',
   },
   checkboxChecked: {
-    backgroundColor: '#FF147A',
+    backgroundColor: '#FFBCD9',
   },
   checkboxTick: {
     color: '#fff',
@@ -384,7 +387,7 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Poppins' : 'Poppins',
   },
   termsLink: {
-    color: '#FF147A',
+    color: '#FFBCD9',
     textDecorationLine: 'underline',
   },
   registerButton: {
@@ -482,7 +485,7 @@ const styles = StyleSheet.create({
   termsModalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#FF147A',
+    color: '#FFBCD9',
     textAlign: 'center',
     marginBottom: 15,
   },
@@ -495,7 +498,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   termsCloseButton: {
-    backgroundColor: '#FF147A',
+    backgroundColor: '#FFBCD9',
     paddingVertical: 10,
     borderRadius: 10,
     alignItems: 'center',
