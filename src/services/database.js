@@ -33,17 +33,33 @@ export const initDatabase = async () => {
     db = await SQLite.openDatabaseAsync(DB_NAME);
     console.log('[DB] База данных открыта');
 
+    // Проверяем существование таблицы users
+    const tables = await executeQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='users'");
+    if (tables.length === 0) {
+      console.log('[DB] Таблица users не найдена, создаём...');
+      await executeQuery(`
+        CREATE TABLE users (
+          user_id INTEGER PRIMARY KEY AUTOINCREMENT,
+          email VARCHAR(255) NOT NULL UNIQUE,
+          password_hash VARCHAR(255) NOT NULL,
+          full_name VARCHAR(255) NOT NULL,
+          phone VARCHAR(20),
+          role VARCHAR(20) DEFAULT 'client',
+          loyalty_points INTEGER DEFAULT 0,
+          personal_discount DECIMAL(5,2) DEFAULT 0.00,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log('[DB] Таблица users создана');
+    }
+
     // Создаём тестового пользователя, если его нет
-    try {
-      const testUser = await executeQuery("SELECT * FROM users WHERE email = 'test@sweet.ru'");
-      if (testUser.length === 0) {
-        await executeQuery(
-          "INSERT INTO users (email, full_name, phone, password_hash, role) VALUES ('test@sweet.ru', 'Тестовый Пользователь', '+79001234567', '123456', 'client')"
-        );
-        console.log('[DB] Тестовый пользователь создан');
-      }
-    } catch (err) {
-      console.log('[DB] Проверка тестового пользователя:', err);
+    const testUser = await executeQuery("SELECT * FROM users WHERE email = 'test@sweet.ru'");
+    if (testUser.length === 0) {
+      await executeQuery(
+        "INSERT INTO users (email, full_name, phone, password_hash, role) VALUES ('test@sweet.ru', 'Тестовый Пользователь', '+79001234567', '123456', 'client')"
+      );
+      console.log('[DB] Тестовый пользователь создан');
     }
 
     return db;
@@ -204,15 +220,21 @@ export const createUser = async (email, fullName, phone, password) => {
     return { success: false, error: 'Email уже существует' };
   }
 
-  const result = await executeQuery(
+  await executeQuery(
     `INSERT INTO users (email, full_name, phone, password_hash, role, loyalty_points, personal_discount, created_at)
      VALUES (?, ?, ?, ?, 'client', 0, 0, datetime('now'))`,
     [email, fullName, phone, password]
   );
   
-  console.log('[CREATE] Пользователь создан, userId:', result.lastInsertRowId);
-  console.log('[CREATE] Результат запроса:', result);
-  return { success: true, userId: result.lastInsertRowId };
+  // Проверяем, что пользователь создался
+  const newUser = await getUserByEmail(email);
+  if (!newUser) {
+    console.log('[CREATE] Ошибка: пользователь не найден после вставки');
+    return { success: false, error: 'Не удалось создать пользователя' };
+  }
+  
+  console.log('[CREATE] Пользователь создан, userId:', newUser.user_id);
+  return { success: true, userId: newUser.user_id };
 };
 
 export const getUserByEmail = async (email) => {
