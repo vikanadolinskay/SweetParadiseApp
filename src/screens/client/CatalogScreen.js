@@ -13,7 +13,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { getProducts } from '../../services/database';
-import BannerCarousel from '../components/BannerCarousel';
+import BannerCarousel from '../../components/BannerCarousel';
 
 // Кэш для товаров
 let productsCache = null;
