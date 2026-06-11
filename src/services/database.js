@@ -10,16 +10,16 @@ let db = null;
 export const initDatabase = async () => {
   try {
     const dbPath = `${FileSystem.documentDirectory}SQLite/${DB_NAME}`;
-    const dirUri = `${FileSystem.documentDirectory}SQLite`;
+    const dirPath = `${FileSystem.documentDirectory}SQLite`;
     
-    const dirInfo = await FileSystem.getInfoAsync(dirUri);
-    if (!dirInfo.exists) {
-      await FileSystem.makeDirectoryAsync(dirUri, { intermediates: true });
+    const dirExists = await FileSystem.getInfoAsync(dirPath);
+    if (!dirExists.exists) {
+      await FileSystem.makeDirectoryAsync(dirPath, { intermediates: true });
     }
     
-    const fileInfo = await FileSystem.getInfoAsync(dbPath);
+    const fileExists = await FileSystem.getInfoAsync(dbPath);
     
-    if (!fileInfo.exists) {
+    if (!fileExists.exists) {
       console.log('[DB] Копирование базы данных...');
       const asset = Asset.fromModule(require('../../assets/database/sweet.db'));
       await asset.downloadAsync();
@@ -33,25 +33,23 @@ export const initDatabase = async () => {
     db = await SQLite.openDatabaseAsync(DB_NAME);
     console.log('[DB] База данных открыта');
 
-    const tables = await db.getAllAsync("SELECT name FROM sqlite_master WHERE type='table' AND name='users'");
-    if (tables.length === 0) {
-      console.log('[DB] Таблица users не найдена, создаём...');
-      await db.execAsync(`
-        CREATE TABLE users (
-          user_id INTEGER PRIMARY KEY AUTOINCREMENT,
-          email VARCHAR(255) NOT NULL UNIQUE,
-          password_hash VARCHAR(255) NOT NULL,
-          full_name VARCHAR(255) NOT NULL,
-          phone VARCHAR(20),
-          role VARCHAR(20) DEFAULT 'client',
-          loyalty_points INTEGER DEFAULT 0,
-          personal_discount DECIMAL(5,2) DEFAULT 0.00,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-      console.log('[DB] Таблица users создана');
-    }
+    // Создаём таблицу users
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS users (
+        user_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email VARCHAR(255) NOT NULL UNIQUE,
+        password_hash VARCHAR(255) NOT NULL,
+        full_name VARCHAR(255) NOT NULL,
+        phone VARCHAR(20),
+        role VARCHAR(20) DEFAULT 'client',
+        loyalty_points INTEGER DEFAULT 0,
+        personal_discount DECIMAL(5,2) DEFAULT 0.00,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('[DB] Таблица users проверена');
 
+    // Создаём тестового пользователя
     const testUser = await db.getAllAsync("SELECT * FROM users WHERE email = 'test@sweet.ru'");
     if (testUser.length === 0) {
       await db.runAsync(
