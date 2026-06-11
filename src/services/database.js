@@ -1,6 +1,6 @@
 // @ts-nocheck
 import * as SQLite from 'expo-sqlite';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { Asset } from 'expo-asset';
 
 const DB_NAME = 'sweet.db';
