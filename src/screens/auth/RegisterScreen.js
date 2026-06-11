@@ -111,7 +111,6 @@ export default function RegisterScreen({ navigation }) {
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.container}>
-          {/* Обычный розовый текст */}
           <Text style={styles.title}>Sweet Paradise</Text>
 
           <View style={styles.inputContainer}>
@@ -207,7 +206,7 @@ export default function RegisterScreen({ navigation }) {
             disabled={loading}
           >
             <LinearGradient
-              colors={['#FFBCD9', '#FFCBBB']}
+              colors={['#FF147A', '#FF6B6B']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.gradientButton}
@@ -247,7 +246,14 @@ export default function RegisterScreen({ navigation }) {
               maxLength={6}
             />
             <TouchableOpacity style={styles.modalButton} onPress={handleConfirmCode}>
-              <Text style={styles.modalButtonText}>Подтвердить</Text>
+              <LinearGradient
+                colors={['#FF147A', '#FF6B6B']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.modalGradientButton}
+              >
+                <Text style={styles.modalButtonText}>Подтвердить</Text>
+              </LinearGradient>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setModalVisible(false)}>
               <Text style={styles.modalClose}>Закрыть</Text>
@@ -313,7 +319,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: 1,
     fontFamily: Platform.OS === 'ios' ? 'Poppins-Bold' : 'Poppins',
-    color: '#FFBCD9',
+    color: '#FF147A',
     marginBottom: 30,
   },
   inputContainer: {
@@ -358,13 +364,13 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 4,
     borderWidth: 2,
-    borderColor: '#FFBCD9',
+    borderColor: '#FF147A',
     marginRight: 10,
     justifyContent: 'center',
     alignItems: 'center',
   },
   checkboxChecked: {
-    backgroundColor: '#FFBCD9',
+    backgroundColor: '#FF147A',
   },
   checkboxTick: {
     color: '#fff',
@@ -378,7 +384,7 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Poppins' : 'Poppins',
   },
   termsLink: {
-    color: '#FFBCD9',
+    color: '#FF147A',
     textDecorationLine: 'underline',
   },
   registerButton: {
@@ -390,6 +396,7 @@ const styles = StyleSheet.create({
   gradientButton: {
     paddingVertical: 14,
     alignItems: 'center',
+    borderRadius: 30,
   },
   registerButtonText: {
     color: '#fff',
@@ -398,7 +405,7 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Poppins-Semibold' : 'Poppins',
   },
   loginLink: {
-    color: '#FFBCD9',
+    color: '#FF147A',
     fontSize: 14,
     fontFamily: Platform.OS === 'ios' ? 'Poppins' : 'Poppins',
   },
@@ -409,16 +416,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalContent: {
-    width: '80%',
+    width: '85%',
     backgroundColor: '#fff',
     borderRadius: 20,
-    padding: 20,
+    padding: 25,
     alignItems: 'center',
   },
   modalTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
-    color: '#FFBCD9',
+    color: '#FF147A',
+    textAlign: 'center',
     marginBottom: 15,
   },
   modalText: {
@@ -427,11 +435,12 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   modalCode: {
-    fontSize: 32,
+    fontSize: 34,
     fontWeight: 'bold',
-    color: '#FFBCD9',
-    letterSpacing: 4,
+    color: '#FF147A',
+    letterSpacing: 6,
     marginBottom: 15,
+    textAlign: 'center',
   },
   modalInput: {
     width: '100%',
@@ -443,11 +452,15 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   modalButton: {
-    backgroundColor: '#FFBCD9',
-    paddingVertical: 12,
-    paddingHorizontal: 30,
+    width: '100%',
     borderRadius: 25,
+    overflow: 'hidden',
     marginBottom: 10,
+  },
+  modalGradientButton: {
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: 25,
   },
   modalButtonText: {
     color: '#fff',
@@ -469,7 +482,7 @@ const styles = StyleSheet.create({
   termsModalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#FFBCD9',
+    color: '#FF147A',
     textAlign: 'center',
     marginBottom: 15,
   },
@@ -482,7 +495,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   termsCloseButton: {
-    backgroundColor: '#FFBCD9',
+    backgroundColor: '#FF147A',
     paddingVertical: 10,
     borderRadius: 10,
     alignItems: 'center',

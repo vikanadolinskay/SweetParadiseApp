@@ -58,7 +58,6 @@ export default function LoginScreen({ navigation }) {
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.container}>
-          {/* Обычный розовый текст */}
           <Text style={styles.title}>Sweet Paradise</Text>
 
           <View style={styles.inputContainer}>
@@ -101,7 +100,7 @@ export default function LoginScreen({ navigation }) {
             disabled={loading}
           >
             <LinearGradient
-              colors={['#FFBCD9', '#FFCBBB']}
+              colors={['#FF147A', '#FF6B6B']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.gradientButton}
@@ -145,7 +144,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: 1,
     fontFamily: Platform.OS === 'ios' ? 'Poppins-Bold' : 'Poppins',
-    color: '#FFBCD9',
+    color: '#FF147A',
     marginBottom: 40,
   },
   inputContainer: {
@@ -196,7 +195,7 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Poppins-Semibold' : 'Poppins',
   },
   registerLink: {
-    color: '#D2691E',
+    color: '#FF147A',
     fontSize: 14,
     marginBottom: 15,
     fontFamily: Platform.OS === 'ios' ? 'Poppins' : 'Poppins',

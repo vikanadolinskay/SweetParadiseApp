@@ -189,7 +189,6 @@ export const createUser = async (email, fullName, phone, password) => {
     return { success: false, error: 'Email уже существует' };
   }
 
-  // БЕЗ ХЭШИРОВАНИЯ - сохраняем пароль как есть
   const result = await executeQuery(
     `INSERT INTO users (email, full_name, phone, password_hash, role, loyalty_points, personal_discount, created_at)
      VALUES (?, ?, ?, ?, 'client', 0, 0, datetime('now'))`,
@@ -230,7 +229,6 @@ export const authenticateUser = async (email, password) => {
   console.log('[AUTH] Пароль из БД:', user.password_hash);
   console.log('[AUTH] Введённый пароль:', password);
 
-  // БЕЗ ХЭШИРОВАНИЯ - сравниваем пароли как есть
   if (password !== user.password_hash) {
     console.log('[AUTH] Неверный пароль:', email);
     return { success: false, error: 'Неверный пароль' };
