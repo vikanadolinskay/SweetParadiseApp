@@ -358,13 +358,13 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 4,
     borderWidth: 2,
-    borderColor: '#D2691E',
+    borderColor: '#FFBCD9',
     marginRight: 10,
     justifyContent: 'center',
     alignItems: 'center',
   },
   checkboxChecked: {
-    backgroundColor: '#D2691E',
+    backgroundColor: '#FFBCD9',
   },
   checkboxTick: {
     color: '#fff',
@@ -378,7 +378,7 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Poppins' : 'Poppins',
   },
   termsLink: {
-    color: '#D2691E',
+    color: '#FFBCD9',
     textDecorationLine: 'underline',
   },
   registerButton: {
@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Poppins-Semibold' : 'Poppins',
   },
   loginLink: {
-    color: '#D2691E',
+    color: '#FFBCD9',
     fontSize: 14,
     fontFamily: Platform.OS === 'ios' ? 'Poppins' : 'Poppins',
   },
@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#D2691E',
+    color: '#FFBCD9',
     marginBottom: 15,
   },
   modalText: {
@@ -429,7 +429,7 @@ const styles = StyleSheet.create({
   modalCode: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#D2691E',
+    color: '#FFBCD9',
     letterSpacing: 4,
     marginBottom: 15,
   },
@@ -443,7 +443,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   modalButton: {
-    backgroundColor: '#D2691E',
+    backgroundColor: '#FFBCD9',
     paddingVertical: 12,
     paddingHorizontal: 30,
     borderRadius: 25,
@@ -469,7 +469,7 @@ const styles = StyleSheet.create({
   termsModalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#D2691E',
+    color: '#FFBCD9',
     textAlign: 'center',
     marginBottom: 15,
   },
@@ -482,7 +482,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   termsCloseButton: {
-    backgroundColor: '#D2691E',
+    backgroundColor: '#FFBCD9',
     paddingVertical: 10,
     borderRadius: 10,
     alignItems: 'center',

@@ -187,6 +187,7 @@ const styles = StyleSheet.create({
   gradientButton: {
     paddingVertical: 14,
     alignItems: 'center',
+    borderRadius: 30,
   },
   loginButtonText: {
     color: '#fff',

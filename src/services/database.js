@@ -2,28 +2,10 @@
 import * as SQLite from 'expo-sqlite';
 import * as FileSystem from 'expo-file-system';
 import { Asset } from 'expo-asset';
-import * as Crypto from 'expo-crypto';
 
 const DB_NAME = 'sweet.db';
 
 let db = null;
-
-// Функция для хэширования пароля
-const hashPassword = async (password) => {
-  const salt = 'sweet_paradise_salt_2024';
-  const saltedPassword = password + salt;
-  const hash = await Crypto.digestStringAsync(
-    Crypto.CryptoDigestAlgorithm.SHA256,
-    saltedPassword
-  );
-  return hash;
-};
-
-// Функция для проверки пароля
-export const verifyPassword = async (inputPassword, storedHash) => {
-  const inputHash = await hashPassword(inputPassword);
-  return inputHash === storedHash;
-};
 
 export const initDatabase = async () => {
   try {
@@ -38,21 +20,21 @@ export const initDatabase = async () => {
     const fileInfo = await FileSystem.getInfoAsync(dbPath);
     
     if (!fileInfo.exists) {
-      console.log('Копирование базы данных...');
+      console.log('[DB] Копирование базы данных...');
       const asset = Asset.fromModule(require('../../assets/database/sweet.db'));
       await asset.downloadAsync();
       await FileSystem.copyAsync({
         from: asset.localUri,
         to: dbPath,
       });
-      console.log('База данных скопирована');
+      console.log('[DB] База данных скопирована');
     }
 
     db = await SQLite.openDatabaseAsync(DB_NAME);
-    console.log('База данных открыта');
+    console.log('[DB] База данных открыта');
     return db;
   } catch (error) {
-    console.error('Ошибка инициализации БД:', error);
+    console.error('[DB] Ошибка инициализации:', error);
     return null;
   }
 };
@@ -78,14 +60,13 @@ export const executeQuery = async (sql, params = []) => {
       };
     }
   } catch (error) {
-    console.error('Ошибка запроса:', error);
-    console.error('SQL:', sql);
-    console.error('Params:', params);
+    console.error('[QUERY] Ошибка:', error);
+    console.error('[QUERY] SQL:', sql);
+    console.error('[QUERY] Params:', params);
     return [];
   }
 };
 
-// ========== ТОВАРЫ ==========
 export const getProducts = async () => {
   const products = await executeQuery(
     'SELECT * FROM products WHERE is_available = 1 ORDER BY product_id'
@@ -119,7 +100,6 @@ export const searchProducts = async (query) => {
   );
 };
 
-// ========== КОРЗИНА (исправлено для cart_item_id) ==========
 export const getCartItems = async (userId) => {
   return await executeQuery(
     `SELECT c.cart_item_id, c.product_id, c.quantity, c.customization,
@@ -132,11 +112,9 @@ export const getCartItems = async (userId) => {
   );
 };
 
-// Добавление в корзину с проверкой персонализации
 export const addToCart = async (userId, productId, quantity = 1, customization = null) => {
   const customizationJson = customization ? JSON.stringify(customization) : null;
   
-  // Проверяем, есть ли уже такой же товар с такой же персонализацией
   let existing = [];
   if (customizationJson) {
     existing = await executeQuery(
@@ -166,7 +144,6 @@ export const addToCart = async (userId, productId, quantity = 1, customization =
   return true;
 };
 
-// Удаление из корзины по cart_item_id (исправлено!)
 export const removeFromCart = async (cartItemId) => {
   await executeQuery(
     'DELETE FROM cart_items WHERE cart_item_id = ?',
@@ -175,7 +152,6 @@ export const removeFromCart = async (cartItemId) => {
   return true;
 };
 
-// Обновление количества по cart_item_id (исправлено!)
 export const updateCartQuantity = async (cartItemId, quantity) => {
   if (quantity <= 0) {
     return await removeFromCart(cartItemId);
@@ -187,13 +163,11 @@ export const updateCartQuantity = async (cartItemId, quantity) => {
   return true;
 };
 
-// Очистка всей корзины пользователя
 export const clearCart = async (userId) => {
   await executeQuery('DELETE FROM cart_items WHERE user_id = ?', [userId]);
   return true;
 };
 
-// ========== ПОЛЬЗОВАТЕЛИ ==========
 export const checkEmailExists = async (email) => {
   const result = await executeQuery(
     'SELECT 1 FROM users WHERE email = ? LIMIT 1',
@@ -203,23 +177,26 @@ export const checkEmailExists = async (email) => {
 };
 
 export const createUser = async (email, fullName, phone, password) => {
+  console.log('[CREATE] Регистрация:', email);
+  
   const existing = await executeQuery(
     'SELECT 1 FROM users WHERE email = ?',
     [email]
   );
 
   if (existing.length > 0) {
+    console.log('[CREATE] Email уже существует:', email);
     return { success: false, error: 'Email уже существует' };
   }
 
-  const hashedPassword = await hashPassword(password);
-
+  // БЕЗ ХЭШИРОВАНИЯ - сохраняем пароль как есть
   const result = await executeQuery(
     `INSERT INTO users (email, full_name, phone, password_hash, role, loyalty_points, personal_discount, created_at)
      VALUES (?, ?, ?, ?, 'client', 0, 0, datetime('now'))`,
-    [email, fullName, phone, hashedPassword]
+    [email, fullName, phone, password]
   );
   
+  console.log('[CREATE] Пользователь создан, userId:', result.lastInsertRowId);
   return { success: true, userId: result.lastInsertRowId };
 };
 
@@ -241,16 +218,25 @@ export const getUserById = async (userId) => {
 };
 
 export const authenticateUser = async (email, password) => {
+  console.log('[AUTH] Попытка входа:', email);
+  
   const user = await getUserByEmail(email);
   if (!user) {
+    console.log('[AUTH] Пользователь не найден:', email);
     return { success: false, error: 'Пользователь не найден' };
   }
+  
+  console.log('[AUTH] Пользователь найден:', user.email);
+  console.log('[AUTH] Пароль из БД:', user.password_hash);
+  console.log('[AUTH] Введённый пароль:', password);
 
-  const isValid = await verifyPassword(password, user.password_hash);
-  if (!isValid) {
+  // БЕЗ ХЭШИРОВАНИЯ - сравниваем пароли как есть
+  if (password !== user.password_hash) {
+    console.log('[AUTH] Неверный пароль:', email);
     return { success: false, error: 'Неверный пароль' };
   }
 
+  console.log('[AUTH] Вход выполнен:', email);
   const { password_hash, ...userWithoutPassword } = user;
   return { success: true, user: userWithoutPassword };
 };
@@ -262,7 +248,6 @@ export const updateLoyaltyPoints = async (userId, points) => {
   );
 };
 
-// ========== ЗАКАЗЫ ==========
 export const getOrdersByUserId = async (userId) => {
   const orders = await executeQuery(
     `SELECT o.*, 
@@ -326,7 +311,7 @@ export const createOrder = async (userId, totalAmount, pickupAddress, desiredPic
     return orderId;
   } catch (error) {
     await database.execAsync('ROLLBACK');
-    console.error('Ошибка создания заказа:', error);
+    console.error('[ORDER] Ошибка создания заказа:', error);
     return null;
   }
 };
@@ -344,7 +329,6 @@ export const updateOrderStatus = async (orderId, status) => {
   );
 };
 
-// ========== АКЦИИ ==========
 export const getPromotions = async () => {
   const now = new Date().toISOString().split('T')[0];
   return await executeQuery(
@@ -355,7 +339,6 @@ export const getPromotions = async () => {
   );
 };
 
-// ========== ПОПУЛЯРНЫЕ ТОВАРЫ ==========
 export const getPopularProducts = async (limit = 10) => {
   return await executeQuery(
     `SELECT p.*, COUNT(oi.order_item_id) as order_count
@@ -369,7 +352,6 @@ export const getPopularProducts = async (limit = 10) => {
   );
 };
 
-// Экспорт всех функций
 export default {
   getProducts,
   getProductById,
