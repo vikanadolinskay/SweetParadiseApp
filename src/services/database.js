@@ -10,11 +10,11 @@ let db = null;
 export const initDatabase = async () => {
   try {
     const dbPath = `${FileSystem.documentDirectory}SQLite/${DB_NAME}`;
-    const dirPath = `${FileSystem.documentDirectory}SQLite`;
+    const dirUri = `${FileSystem.documentDirectory}SQLite`;
     
-    const dirInfo = await FileSystem.getInfoAsync(dirPath);
+    const dirInfo = await FileSystem.getInfoAsync(dirUri);
     if (!dirInfo.exists) {
-      await FileSystem.makeDirectoryAsync(dirPath, { intermediates: true });
+      await FileSystem.makeDirectoryAsync(dirUri, { intermediates: true });
     }
     
     const fileInfo = await FileSystem.getInfoAsync(dbPath);
@@ -33,7 +33,6 @@ export const initDatabase = async () => {
     db = await SQLite.openDatabaseAsync(DB_NAME);
     console.log('[DB] База данных открыта');
 
-    // Проверяем существование таблицы users
     const tables = await db.getAllAsync("SELECT name FROM sqlite_master WHERE type='table' AND name='users'");
     if (tables.length === 0) {
       console.log('[DB] Таблица users не найдена, создаём...');
@@ -53,7 +52,6 @@ export const initDatabase = async () => {
       console.log('[DB] Таблица users создана');
     }
 
-    // Создаём тестового пользователя, если его нет
     const testUser = await db.getAllAsync("SELECT * FROM users WHERE email = 'test@sweet.ru'");
     if (testUser.length === 0) {
       await db.runAsync(
@@ -84,8 +82,6 @@ export const executeQuery = async (sql, params = []) => {
       return result || [];
     } else {
       const result = await database.runAsync(sql, params);
-      // В expo-sqlite lastInsertRowId доступен через result
-      console.log('[QUERY] INSERT результат:', result);
       return { 
         lastInsertRowId: result.lastInsertRowId, 
         changes: result.changes 
@@ -100,26 +96,30 @@ export const executeQuery = async (sql, params = []) => {
 };
 
 export const getProducts = async () => {
-  const dbConn = await getDb();
-  const products = await dbConn.getAllAsync('SELECT * FROM products WHERE is_available = 1 ORDER BY product_id');
+  const products = await executeQuery(
+    'SELECT * FROM products WHERE is_available = 1 ORDER BY product_id'
+  );
   return products;
 };
 
 export const getProductById = async (productId) => {
-  const dbConn = await getDb();
-  const products = await dbConn.getAllAsync('SELECT * FROM products WHERE product_id = ? AND is_available = 1', [productId]);
+  const products = await executeQuery(
+    'SELECT * FROM products WHERE product_id = ? AND is_available = 1',
+    [productId]
+  );
   return products.length > 0 ? products[0] : null;
 };
 
 export const getProductsByCategory = async (category) => {
-  const dbConn = await getDb();
-  return await dbConn.getAllAsync('SELECT * FROM products WHERE category = ? AND is_available = 1', [category]);
+  return await executeQuery(
+    'SELECT * FROM products WHERE category = ? AND is_available = 1',
+    [category]
+  );
 };
 
 export const searchProducts = async (query) => {
-  const dbConn = await getDb();
   const searchQuery = `%${query}%`;
-  return await dbConn.getAllAsync(
+  return await executeQuery(
     `SELECT * FROM products 
      WHERE is_available = 1 
      AND (name LIKE ? OR description LIKE ?)
@@ -129,8 +129,7 @@ export const searchProducts = async (query) => {
 };
 
 export const getCartItems = async (userId) => {
-  const dbConn = await getDb();
-  return await dbConn.getAllAsync(
+  return await executeQuery(
     `SELECT c.cart_item_id, c.product_id, c.quantity, c.customization,
             p.name, p.price, p.image_url, p.discount
      FROM cart_items c
@@ -142,17 +141,16 @@ export const getCartItems = async (userId) => {
 };
 
 export const addToCart = async (userId, productId, quantity = 1, customization = null) => {
-  const dbConn = await getDb();
   const customizationJson = customization ? JSON.stringify(customization) : null;
   
   let existing = [];
   if (customizationJson) {
-    existing = await dbConn.getAllAsync(
+    existing = await executeQuery(
       'SELECT * FROM cart_items WHERE user_id = ? AND product_id = ? AND customization = ?',
       [userId, productId, customizationJson]
     );
   } else {
-    existing = await dbConn.getAllAsync(
+    existing = await executeQuery(
       'SELECT * FROM cart_items WHERE user_id = ? AND product_id = ? AND customization IS NULL',
       [userId, productId]
     );
@@ -160,12 +158,12 @@ export const addToCart = async (userId, productId, quantity = 1, customization =
 
   if (existing.length > 0) {
     const newQuantity = existing[0].quantity + quantity;
-    await dbConn.runAsync(
+    await executeQuery(
       'UPDATE cart_items SET quantity = ? WHERE cart_item_id = ?',
       [newQuantity, existing[0].cart_item_id]
     );
   } else {
-    await dbConn.runAsync(
+    await executeQuery(
       `INSERT INTO cart_items (user_id, product_id, quantity, customization, added_at) 
        VALUES (?, ?, ?, ?, datetime('now'))`,
       [userId, productId, quantity, customizationJson]
@@ -175,8 +173,10 @@ export const addToCart = async (userId, productId, quantity = 1, customization =
 };
 
 export const removeFromCart = async (cartItemId) => {
-  const dbConn = await getDb();
-  await dbConn.runAsync('DELETE FROM cart_items WHERE cart_item_id = ?', [cartItemId]);
+  await executeQuery(
+    'DELETE FROM cart_items WHERE cart_item_id = ?',
+    [cartItemId]
+  );
   return true;
 };
 
@@ -184,56 +184,59 @@ export const updateCartQuantity = async (cartItemId, quantity) => {
   if (quantity <= 0) {
     return await removeFromCart(cartItemId);
   }
-  const dbConn = await getDb();
-  await dbConn.runAsync('UPDATE cart_items SET quantity = ? WHERE cart_item_id = ?', [quantity, cartItemId]);
+  await executeQuery(
+    'UPDATE cart_items SET quantity = ? WHERE cart_item_id = ?',
+    [quantity, cartItemId]
+  );
   return true;
 };
 
 export const clearCart = async (userId) => {
-  const dbConn = await getDb();
-  await dbConn.runAsync('DELETE FROM cart_items WHERE user_id = ?', [userId]);
+  await executeQuery('DELETE FROM cart_items WHERE user_id = ?', [userId]);
   return true;
 };
 
 export const checkEmailExists = async (email) => {
-  const dbConn = await getDb();
-  const result = await dbConn.getAllAsync('SELECT 1 FROM users WHERE email = ? LIMIT 1', [email]);
+  const result = await executeQuery(
+    'SELECT 1 FROM users WHERE email = ? LIMIT 1',
+    [email]
+  );
   return result.length > 0;
 };
 
 export const createUser = async (email, fullName, phone, password) => {
   console.log('[CREATE] Регистрация:', email);
-  const dbConn = await getDb();
   
-  const existing = await dbConn.getAllAsync('SELECT 1 FROM users WHERE email = ?', [email]);
+  const existing = await executeQuery(
+    'SELECT 1 FROM users WHERE email = ?',
+    [email]
+  );
 
   if (existing.length > 0) {
     console.log('[CREATE] Email уже существует:', email);
     return { success: false, error: 'Email уже существует' };
   }
 
-  const result = await dbConn.runAsync(
+  const result = await executeQuery(
     `INSERT INTO users (email, full_name, phone, password_hash, role, loyalty_points, personal_discount, created_at)
      VALUES (?, ?, ?, ?, 'client', 0, 0, datetime('now'))`,
     [email, fullName, phone, password]
   );
   
-  console.log('[CREATE] Результат INSERT:', result);
-  console.log('[CREATE] lastInsertRowId:', result.lastInsertRowId);
-  console.log('[CREATE] Пользователь создан');
+  console.log('[CREATE] Пользователь создан, userId:', result.lastInsertRowId);
   return { success: true, userId: result.lastInsertRowId };
 };
 
 export const getUserByEmail = async (email) => {
-  const dbConn = await getDb();
-  const result = await dbConn.getAllAsync('SELECT * FROM users WHERE email = ? LIMIT 1', [email]);
-  console.log('[GET_USER] Email:', email, 'Результат:', result);
+  const result = await executeQuery(
+    'SELECT * FROM users WHERE email = ? LIMIT 1',
+    [email]
+  );
   return result.length > 0 ? result[0] : null;
 };
 
 export const getUserById = async (userId) => {
-  const dbConn = await getDb();
-  const result = await dbConn.getAllAsync(
+  const result = await executeQuery(
     `SELECT user_id, email, full_name, phone, role, loyalty_points, personal_discount, created_at 
      FROM users WHERE user_id = ? LIMIT 1`,
     [userId]
@@ -243,7 +246,6 @@ export const getUserById = async (userId) => {
 
 export const authenticateUser = async (email, password) => {
   console.log('[AUTH] Попытка входа:', email);
-  const dbConn = await getDb();
   
   const user = await getUserByEmail(email);
   if (!user) {
@@ -266,13 +268,14 @@ export const authenticateUser = async (email, password) => {
 };
 
 export const updateLoyaltyPoints = async (userId, points) => {
-  const dbConn = await getDb();
-  await dbConn.runAsync('UPDATE users SET loyalty_points = loyalty_points + ? WHERE user_id = ?', [points, userId]);
+  await executeQuery(
+    'UPDATE users SET loyalty_points = loyalty_points + ? WHERE user_id = ?',
+    [points, userId]
+  );
 };
 
 export const getOrdersByUserId = async (userId) => {
-  const dbConn = await getDb();
-  const orders = await dbConn.getAllAsync(
+  const orders = await executeQuery(
     `SELECT o.*, 
             (SELECT COUNT(*) FROM order_items WHERE order_id = o.order_id) as items_count
      FROM orders o
@@ -289,8 +292,7 @@ export const getOrdersByUserId = async (userId) => {
 };
 
 export const getOrderItems = async (orderId) => {
-  const dbConn = await getDb();
-  return await dbConn.getAllAsync(
+  return await executeQuery(
     `SELECT oi.*, p.name, p.image_url
      FROM order_items oi
      JOIN products p ON oi.product_id = p.product_id
@@ -306,7 +308,7 @@ export const createOrder = async (userId, totalAmount, pickupAddress, desiredPic
   try {
     await database.execAsync('BEGIN TRANSACTION');
 
-    const orderResult = await database.runAsync(
+    const orderResult = await executeQuery(
       `INSERT INTO orders (user_id, status, total_amount, pickup_address, desired_pickup_time, payment_method, created_at, updated_at)
        VALUES (?, 'pending', ?, ?, ?, ?, datetime('now'), datetime('now'))`,
       [userId, totalAmount, pickupAddress, desiredPickupTime, paymentMethod]
@@ -316,7 +318,7 @@ export const createOrder = async (userId, totalAmount, pickupAddress, desiredPic
 
     for (const item of items) {
       const customizationJson = item.customization ? JSON.stringify(item.customization) : null;
-      await database.runAsync(
+      await executeQuery(
         `INSERT INTO order_items (order_id, product_id, quantity, price_at_time, customization)
          VALUES (?, ?, ?, ?, ?)`,
         [orderId, item.product_id, item.quantity, item.price, customizationJson]
@@ -325,7 +327,7 @@ export const createOrder = async (userId, totalAmount, pickupAddress, desiredPic
 
     await clearCart(userId);
     
-    await database.runAsync(
+    await executeQuery(
       `INSERT INTO order_history (order_id, action, description, created_at)
        VALUES (?, 'created', 'Заказ создан', datetime('now'))`,
       [orderId]
@@ -341,9 +343,12 @@ export const createOrder = async (userId, totalAmount, pickupAddress, desiredPic
 };
 
 export const updateOrderStatus = async (orderId, status) => {
-  const dbConn = await getDb();
-  await dbConn.runAsync('UPDATE orders SET status = ?, updated_at = datetime("now") WHERE order_id = ?', [status, orderId]);
-  await dbConn.runAsync(
+  await executeQuery(
+    'UPDATE orders SET status = ?, updated_at = datetime("now") WHERE order_id = ?',
+    [status, orderId]
+  );
+
+  await executeQuery(
     `INSERT INTO order_history (order_id, action, description, created_at)
      VALUES (?, 'status_changed', ?, datetime('now'))`,
     [orderId, `Статус изменён на ${status}`]
@@ -351,9 +356,8 @@ export const updateOrderStatus = async (orderId, status) => {
 };
 
 export const getPromotions = async () => {
-  const dbConn = await getDb();
   const now = new Date().toISOString().split('T')[0];
-  return await dbConn.getAllAsync(
+  return await executeQuery(
     `SELECT * FROM promotions 
      WHERE is_active = 1 AND start_date <= ? AND end_date >= ?
      ORDER BY value DESC`,
@@ -362,8 +366,7 @@ export const getPromotions = async () => {
 };
 
 export const getPopularProducts = async (limit = 10) => {
-  const dbConn = await getDb();
-  return await dbConn.getAllAsync(
+  return await executeQuery(
     `SELECT p.*, COUNT(oi.order_item_id) as order_count
      FROM products p
      LEFT JOIN order_items oi ON p.product_id = oi.product_id
@@ -376,7 +379,6 @@ export const getPopularProducts = async (limit = 10) => {
 };
 
 export default {
-  initDatabase,
   getProducts,
   getProductById,
   getProductsByCategory,
