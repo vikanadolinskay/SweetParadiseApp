@@ -28,7 +28,6 @@ export default function RegisterScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   
-  // Модальные окна
   const [modalVisible, setModalVisible] = useState(false);
   const [termsModalVisible, setTermsModalVisible] = useState(false);
   const [generatedCode, setGeneratedCode] = useState('');
@@ -113,10 +112,12 @@ export default function RegisterScreen({ navigation }) {
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.container}>
-          {/* Градиентный текст Sweet Paradise - ТОЛЬКО БУКВЫ */}
           <MaskedView
+            style={styles.maskedView}
             maskElement={
-              <Text style={styles.title}>Sweet Paradise</Text>
+              <View style={styles.maskContainer}>
+                <Text style={styles.title}>Sweet Paradise</Text>
+              </View>
             }
           >
             <LinearGradient
@@ -199,7 +200,6 @@ export default function RegisterScreen({ navigation }) {
             </View>
           </View>
 
-          {/* Чекбокс с открытием соглашения */}
           <TouchableOpacity 
             style={styles.termsContainer}
             onPress={() => setAcceptedTerms(!acceptedTerms)}
@@ -240,7 +240,6 @@ export default function RegisterScreen({ navigation }) {
         </View>
       </ScrollView>
 
-      {/* Модальное окно с кодом */}
       <Modal
         animationType="fade"
         transparent={true}
@@ -271,7 +270,6 @@ export default function RegisterScreen({ navigation }) {
         </View>
       </Modal>
 
-      {/* Модальное окно с текстом соглашения */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -323,16 +321,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     backgroundColor: '#fff',
   },
+  maskedView: {
+    marginBottom: 30,
+    alignSelf: 'center',
+  },
+  maskContainer: {
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   title: {
     fontSize: 36,
     fontWeight: 'bold',
     textAlign: 'center',
     letterSpacing: 1,
     fontFamily: Platform.OS === 'ios' ? 'Poppins-Bold' : 'Poppins',
-    color: '#000', // цвет не важен, т.к. это маска
+    color: '#000',
   },
   gradientMask: {
-    flex: 1,
+    width: 280,
     height: 50,
   },
   inputContainer: {
@@ -478,7 +485,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 5,
   },
-  // Стили для окна соглашения
   termsModalContent: {
     width: '85%',
     maxHeight: '80%',

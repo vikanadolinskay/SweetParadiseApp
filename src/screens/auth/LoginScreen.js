@@ -59,10 +59,13 @@ export default function LoginScreen({ navigation }) {
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.container}>
-          {/* Градиентный текст - ТОЛЬКО БУКВЫ */}
+          {/* Градиентный текст - исправленный вариант */}
           <MaskedView
+            style={styles.maskedView}
             maskElement={
-              <Text style={styles.title}>Sweet Paradise</Text>
+              <View style={styles.maskContainer}>
+                <Text style={styles.title}>Sweet Paradise</Text>
+              </View>
             }
           >
             <LinearGradient
@@ -151,6 +154,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     backgroundColor: '#fff',
   },
+  maskedView: {
+    marginBottom: 40,
+    alignSelf: 'center',
+  },
+  maskContainer: {
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   title: {
     fontSize: 42,
     fontWeight: 'bold',
@@ -160,7 +172,7 @@ const styles = StyleSheet.create({
     color: '#000',
   },
   gradientMask: {
-    flex: 1,
+    width: 300,
     height: 55,
   },
   inputContainer: {
