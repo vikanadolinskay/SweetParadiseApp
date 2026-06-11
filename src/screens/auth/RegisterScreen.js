@@ -13,6 +13,7 @@ import {
   Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { MaskedView } from '@react-native-masked-view/masked-view';
 import { Ionicons } from '@expo/vector-icons';
 import { createUser, checkEmailExists } from '../../services/database';
 
@@ -111,7 +112,20 @@ export default function RegisterScreen({ navigation }) {
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.container}>
-          <Text style={styles.title}>Sweet Paradise</Text>
+          {/* Градиентный текст Sweet Paradise */}
+          <MaskedView
+            style={styles.maskedView}
+            maskElement={
+              <Text style={styles.title}>Sweet Paradise</Text>
+            }
+          >
+            <LinearGradient
+              colors={['#FFBCD9', '#FFCBBB']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.gradientMask}
+            />
+          </MaskedView>
 
           <View style={styles.inputContainer}>
             <TextInput
@@ -316,14 +330,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     backgroundColor: '#fff',
   },
+  maskedView: {
+    marginBottom: 30,
+    alignSelf: 'center',
+  },
   title: {
     fontSize: 36,
     fontWeight: 'bold',
     textAlign: 'center',
     letterSpacing: 1,
     fontFamily: Platform.OS === 'ios' ? 'Poppins-Bold' : 'Poppins',
-    color: '#FF147A',
-    marginBottom: 30,
+    color: '#000', // цвет не важен, это маска
+  },
+  gradientMask: {
+    width: 250,
+    height: 50,
   },
   inputContainer: {
     width: '100%',

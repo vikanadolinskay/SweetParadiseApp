@@ -10,8 +10,10 @@ import {
   ActivityIndicator,
   TextInput,
   RefreshControl,
+  ScrollView,
 } from 'react-native';
 import { getProducts } from '../../services/database';
+import BannerCarousel from '../components/BannerCarousel';
 
 // Кэш для товаров
 let productsCache = null;
@@ -82,10 +84,10 @@ export default function CatalogScreen({ navigation }) {
     // Сортировка
     switch (sortOrder) {
       case 'price_asc':
-        result.sort((a, b) => a.price - b.price);
+        result.sort((a, b) => (a.price || 0) - (b.price || 0));
         break;
       case 'price_desc':
-        result.sort((a, b) => b.price - a.price);
+        result.sort((a, b) => (b.price || 0) - (a.price || 0));
         break;
       case 'discount':
         result.sort((a, b) => (b.discount || 0) - (a.discount || 0));
@@ -112,7 +114,7 @@ export default function CatalogScreen({ navigation }) {
   };
 
   const handleAddToCart = (product) => {
-    alert(`Товар ${product.name} добавлен в корзину`);
+    alert(`🍰 ${product.name} добавлен в корзину!`);
   };
 
   const renderProduct = ({ item }) => {
@@ -198,21 +200,24 @@ export default function CatalogScreen({ navigation }) {
   if (loading && !refreshing) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#FF147A" />
+        <ActivityIndicator size="large" color="#FF69B4" />
         <Text style={styles.loadingText}>Загрузка товаров...</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Шапка с названием и контактами (как на изображении) */}
       <View style={styles.header}>
         <Text style={styles.logo}>Weddingcake</Text>
-        <Text style={styles.clientMark}>Клиентская марка</Text>
+        <Text style={styles.clientMark}>Клиентская компания</Text>
         <Text style={styles.phone}>00 123 456 789</Text>
         <Text style={styles.website}>www.yourwebsite.com</Text>
       </View>
+
+      {/* Баннер - карусель */}
+      <BannerCarousel navigation={navigation} />
 
       {/* Поиск */}
       <View style={styles.searchContainer}>
@@ -238,7 +243,12 @@ export default function CatalogScreen({ navigation }) {
       {/* Сортировка */}
       <View style={styles.sortContainer}>
         <TouchableOpacity style={styles.sortButton} onPress={() => setShowSortMenu(!showSortMenu)}>
-          <Text style={styles.sortButtonText}>Сортировка ▼</Text>
+          <Text style={styles.sortButtonText}>
+            {sortOrder === 'default' && 'Сортировка ▼'}
+            {sortOrder === 'price_asc' && 'Сначала дешевле ▼'}
+            {sortOrder === 'price_desc' && 'Сначала дороже ▼'}
+            {sortOrder === 'discount' && 'По скидке ▼'}
+          </Text>
         </TouchableOpacity>
         {showSortMenu && (
           <View style={styles.sortMenu}>
@@ -265,157 +275,173 @@ export default function CatalogScreen({ navigation }) {
         renderItem={renderProduct}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
+        scrollEnabled={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF147A']} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF69B4']} />
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>Ничего не найдено</Text>
+            <Text style={styles.emptyText}>😔 Ничего не найдено</Text>
           </View>
         }
       />
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
   },
-  // Стили шапки (как на изображении)
   header: {
     alignItems: 'center',
     paddingTop: 48,
     paddingBottom: 16,
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E6E6E6',
+    borderBottomColor: '#F0F0F0',
   },
   logo: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#2C2C2C',
+    letterSpacing: 0.5,
   },
   clientMark: {
     fontSize: 12,
-    color: '#999',
+    color: '#999999',
     marginTop: 4,
   },
   phone: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#333',
+    color: '#2C2C2C',
     marginTop: 8,
   },
   website: {
     fontSize: 12,
-    color: '#999',
+    color: '#999999',
     marginTop: 2,
   },
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#FFFFFF',
   },
   loadingText: {
     marginTop: 12,
     fontSize: 14,
-    color: '#828282',
+    color: '#999999',
   },
   searchContainer: {
-    padding: 10,
-    backgroundColor: '#F5F5F5',
-    margin: 10,
+    backgroundColor: '#F8F8F8',
+    margin: 16,
+    marginTop: 12,
+    marginBottom: 8,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
   },
   searchInput: {
     fontSize: 16,
-    padding: 10,
-    color: '#333',
+    padding: 12,
+    paddingHorizontal: 16,
+    color: '#2C2C2C',
   },
   categoriesList: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 8,
   },
   categoryChip: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#E6E6E6',
+    backgroundColor: '#F5F5F5',
     marginHorizontal: 4,
   },
   categoryChipActive: {
-    backgroundColor: '#FF147A',
+    backgroundColor: '#FF69B4',
   },
   categoryText: {
     fontSize: 14,
-    color: '#666',
+    color: '#666666',
+    fontWeight: '500',
   },
   categoryTextActive: {
-    color: '#fff',
-    fontWeight: 'bold',
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
   sortContainer: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     paddingHorizontal: 16,
+    marginTop: 4,
     marginBottom: 8,
     position: 'relative',
+    zIndex: 10,
   },
   sortButton: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 12,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#FF147A',
+    borderColor: '#FF69B4',
   },
   sortButtonText: {
-    fontSize: 14,
-    color: '#FF147A',
+    fontSize: 13,
+    color: '#FF69B4',
+    fontWeight: '500',
   },
   sortMenu: {
     position: 'absolute',
     top: 35,
     right: 16,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    shadowColor: '#000',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: 8,
     elevation: 5,
     zIndex: 100,
+    minWidth: 160,
   },
   sortMenuItem: {
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: '#F0F0F0',
   },
   sortMenuItemText: {
     fontSize: 14,
-    color: '#333',
+    color: '#2C2C2C',
   },
   list: {
-    paddingHorizontal: 10,
-    paddingBottom: 20,
+    paddingHorizontal: 16,
+    paddingBottom: 30,
   },
   card: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     marginBottom: 12,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#E6E6E6',
+    borderColor: '#F0F0F0',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
   image: {
     width: 100,
     height: 100,
-    borderRadius: 8,
-    backgroundColor: '#f5f5f5',
+    borderRadius: 12,
+    backgroundColor: '#F8F8F8',
   },
   cardContent: {
     flex: 1,
@@ -423,23 +449,23 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
+    fontWeight: '700',
+    color: '#2C2C2C',
+    marginBottom: 6,
   },
   detailRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 2,
+    marginBottom: 3,
   },
   detailLabel: {
-    fontSize: 12,
-    color: '#888',
+    fontSize: 11,
+    color: '#999999',
     width: 55,
   },
   detailValue: {
-    fontSize: 12,
-    color: '#555',
+    fontSize: 11,
+    color: '#666666',
     flex: 1,
   },
   priceRow: {
@@ -447,18 +473,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexWrap: 'wrap',
     marginTop: 6,
-    marginBottom: 6,
+    marginBottom: 8,
   },
   oldPrice: {
     fontSize: 13,
-    color: '#999',
+    color: '#999999',
     textDecorationLine: 'line-through',
     marginRight: 8,
   },
   price: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FF147A',
+    fontWeight: '700',
+    color: '#FF69B4',
   },
   discountBadge: {
     backgroundColor: '#FFE4E1',
@@ -469,29 +495,28 @@ const styles = StyleSheet.create({
   },
   discountText: {
     fontSize: 10,
-    color: '#FF147A',
+    color: '#FF69B4',
     fontWeight: 'bold',
   },
   addButton: {
-    backgroundColor: '#FF147A',
-    padding: 8,
-    borderRadius: 8,
-    marginTop: 4,
+    backgroundColor: '#FF69B4',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
     alignItems: 'center',
+    marginTop: 4,
   },
   addButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 14,
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 13,
   },
   emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 50,
   },
   emptyText: {
     fontSize: 16,
-    color: '#999',
+    color: '#999999',
   },
 });

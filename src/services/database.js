@@ -7,6 +7,74 @@ const DB_NAME = 'sweet.db';
 
 let db = null;
 
+// Функция для получения локального изображения
+const getLocalImage = (imagePath) => {
+  if (!imagePath) return null;
+  
+  const imageMap = {
+    // Товары
+    'images/bant_classic.jpg': require('../../assets/images/bant_classic.jpg'),
+    'images/bant_mini.jpg': require('../../assets/images/bant_mini.jpg'),
+    'images/bant_pearl.jpg': require('../../assets/images/bant_pearl.jpg'),
+    'images/bant_pink.jpg': require('../../assets/images/bant_pink.jpg'),
+    'images/basque.jpg': require('../../assets/images/basque.jpg'),
+    'images/bento.jpg': require('../../assets/images/bento.jpg'),
+    'images/brownie.jpg': require('../../assets/images/brownie.jpg'),
+    'images/canele.jpg': require('../../assets/images/canele.jpg'),
+    'images/choux_cheese.jpg': require('../../assets/images/choux_cheese.jpg'),
+    'images/cookies_choco.jpg': require('../../assets/images/cookies_choco.jpg'),
+    'images/creme_brulee.jpg': require('../../assets/images/creme_brulee.jpg'),
+    'images/croissant_almond.jpg': require('../../assets/images/croissant_almond.jpg'),
+    'images/croissant_choco.jpg': require('../../assets/images/croissant_choco.jpg'),
+    'images/croissant_pist.jpg': require('../../assets/images/croissant_pist.jpg'),
+    'images/danet_lemon.jpg': require('../../assets/images/danet_lemon.jpg'),
+    'images/eclair_caramel.jpg': require('../../assets/images/eclair_caramel.jpg'),
+    'images/eclair_choco_pist.jpg': require('../../assets/images/eclair_choco_pist.jpg'),
+    'images/eclair_vanilla.jpg': require('../../assets/images/eclair_vanilla.jpg'),
+    'images/financier.jpg': require('../../assets/images/financier.jpg'),
+    'images/kinder.jpg': require('../../assets/images/kinder.jpg'),
+    'images/lambet_caramel.jpg': require('../../assets/images/lambet_caramel.jpg'),
+    'images/lambet_classic.jpg': require('../../assets/images/lambet_classic.jpg'),
+    'images/lambet_coconut.jpg': require('../../assets/images/lambet_coconut.jpg'),
+    'images/lambet_fondant.jpg': require('../../assets/images/lambet_fondant.jpg'),
+    'images/lambet_pistachio.jpg': require('../../assets/images/lambet_pistachio.jpg'),
+    'images/lambet_tropical.jpg': require('../../assets/images/lambet_tropical.jpg'),
+    'images/macaron_caramel.jpg': require('../../assets/images/macaron_caramel.jpg'),
+    'images/macaron_lavender.jpg': require('../../assets/images/macaron_lavender.jpg'),
+    'images/macaron_mango.jpg': require('../../assets/images/macaron_mango.jpg'),
+    'images/macaron_matcha.jpg': require('../../assets/images/macaron_matcha.jpg'),
+    'images/macaron_pearl.jpg': require('../../assets/images/macaron_pearl.jpg'),
+    'images/macaron_pistachio.jpg': require('../../assets/images/macaron_pistachio.jpg'),
+    'images/macaron_truffle.jpg': require('../../assets/images/macaron_truffle.jpg'),
+    'images/mirror.jpg': require('../../assets/images/mirror.jpg'),
+    'images/ny_blueberry.jpg': require('../../assets/images/ny_blueberry.jpg'),
+    'images/ny_cheescake.jpg': require('../../assets/images/ny_cheescake.jpg'),
+    'images/ny_raspberry.jpg': require('../../assets/images/ny_raspberry.jpg'),
+    'images/opera.jpg': require('../../assets/images/opera.jpg'),
+    'images/panna_cotta.jpg': require('../../assets/images/panna_cotta.jpg'),
+    'images/panna_cotta_pist.jpg': require('../../assets/images/panna_cotta_pist.jpg'),
+    'images/panna_cotta_mango.jpg': require('../../assets/images/panna_cotta_mango.jpg'),
+    'images/paris_brest.jpg': require('../../assets/images/paris_brest.jpg'),
+    'images/pavlova.jpg': require('../../assets/images/pavlova.jpg'),
+    'images/rafaello.jpg': require('../../assets/images/rafaello.jpg'),
+    'images/sacher.jpg': require('../../assets/images/sacher.jpg'),
+    'images/saint_honore.jpg': require('../../assets/images/saint_honore.jpg'),
+    'images/tart_berry.jpg': require('../../assets/images/tart_berry.jpg'),
+    'images/tart_lemon.jpg': require('../../assets/images/tart_lemon.jpg'),
+    'images/tiramisu.jpg': require('../../assets/images/tiramisu.jpg'),
+    'images/truffles.jpg': require('../../assets/images/truffles.jpg'),
+    
+    // Баннеры
+    'banners/banner_wedding_main.jpg': require('../../assets/images/banners/banner_wedding_main.jpg'),
+    'banners/banner_sale_20.jpg': require('../../assets/images/banners/banner_sale_20.jpg'),
+    'banners/banner_new_arrivals.jpg': require('../../assets/images/banners/banner_new_arrivals.jpg'),
+    'banners/banner_birthday.jpg': require('../../assets/images/banners/banner_birthday.jpg'),
+    'banners/banner_seasonal_summer.jpg': require('../../assets/images/banners/banner_seasonal_summer.jpg'),
+  };
+  
+  return imageMap[imagePath] || null;
+};
+
 export const initDatabase = async () => {
   try {
     const dbDir = FileSystem.documentDirectory + 'SQLite/';
@@ -52,6 +120,26 @@ export const initDatabase = async () => {
     `);
     console.log('[DB] Таблица users проверена');
 
+    // Создаём таблицу banners, если её нет
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS banners (
+        banner_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name VARCHAR(255) NOT NULL,
+        title VARCHAR(255),
+        subtitle VARCHAR(500),
+        image_url VARCHAR(500) NOT NULL,
+        link_type VARCHAR(50),
+        link_value VARCHAR(500),
+        button_text VARCHAR(100),
+        order_position INTEGER DEFAULT 0,
+        is_active BOOLEAN DEFAULT 1,
+        start_date DATE,
+        end_date DATE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('[DB] Таблица banners проверена');
+
     // Создаём тестового пользователя
     const existingUser = await db.getAllAsync("SELECT * FROM users WHERE email = 'test@sweet.ru'");
     if (existingUser.length === 0) {
@@ -62,6 +150,21 @@ export const initDatabase = async () => {
       console.log('[DB] Тестовый пользователь создан');
     } else {
       console.log('[DB] Тестовый пользователь уже существует');
+    }
+
+    // Проверяем и добавляем баннеры, если их нет
+    const existingBanners = await db.getAllAsync("SELECT COUNT(*) as count FROM banners");
+    if (existingBanners[0].count === 0) {
+      console.log('[DB] Добавление баннеров...');
+      await db.runAsync(`
+        INSERT INTO banners (name, title, subtitle, image_url, link_type, link_value, button_text, order_position, is_active) VALUES
+        ('Свадебные торты', 'Свадебные торты', 'Индивидуальный дизайн под ваш праздник', 'banners/banner_wedding_main.jpg', 'category', 'cakes', 'Выбрать торт', 1, 1),
+        ('Акция 20%', 'Скидка 20%', 'На все торты при заказе от 3 кг', 'banners/banner_sale_20.jpg', 'promotion', '2', 'Подробнее', 2, 1),
+        ('Новинки сезона', 'Новые десерты', 'Пирожные и капкейки', 'banners/banner_new_arrivals.jpg', 'category', 'pastries', 'Смотреть', 3, 1),
+        ('День рождения', 'Сладкий подарок', 'Торт в подарок - скидка 10%', 'banners/banner_birthday.jpg', 'promotion', '7', 'Заказать', 4, 1),
+        ('Летние десерты', 'Легкие десерты', 'Фруктовые и ягодные', 'banners/banner_seasonal_summer.jpg', 'category', 'desserts', 'Попробовать', 5, 1)
+      `);
+      console.log('[DB] Баннеры добавлены');
     }
 
     return db;
@@ -98,38 +201,93 @@ export const executeQuery = async (sql, params = []) => {
   }
 };
 
-// ========== ОСТАЛЬНЫЕ ФУНКЦИИ (без изменений) ==========
+// ========== БАННЕРЫ ==========
+export const getBanners = async () => {
+  const dbConn = await getDb();
+  if (!dbConn) return [];
+  
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const banners = await dbConn.getAllAsync(`
+      SELECT 
+        banner_id,
+        name,
+        title,
+        subtitle,
+        image_url,
+        link_type,
+        link_value,
+        button_text,
+        order_position
+      FROM banners
+      WHERE is_active = 1
+        AND (start_date IS NULL OR start_date <= ?)
+        AND (end_date IS NULL OR end_date >= ?)
+      ORDER BY order_position ASC, banner_id ASC
+    `, [today, today]);
+    
+    // Добавляем поле image_source с require для локальных изображений баннеров
+    return banners.map(b => ({
+      ...b,
+      image_source: getLocalImage(b.image_url)
+    }));
+  } catch (error) {
+    console.error('[BANNERS] Ошибка получения баннеров:', error);
+    return [];
+  }
+};
+
+// ========== ТОВАРЫ С ИЗОБРАЖЕНИЯМИ ==========
 export const getProducts = async () => {
   const dbConn = await getDb();
-  return await dbConn.getAllAsync('SELECT * FROM products WHERE is_available = 1 ORDER BY product_id');
+  const products = await dbConn.getAllAsync('SELECT * FROM products WHERE is_available = 1 ORDER BY product_id');
+  
+  // Добавляем поле image_source с require для локальных изображений
+  return products.map(p => ({
+    ...p,
+    image_source: getLocalImage(p.image_url)
+  }));
 };
 
 export const getProductById = async (productId) => {
   const dbConn = await getDb();
-  const result = await dbConn.getAllAsync('SELECT * FROM products WHERE product_id = ? AND is_available = 1', [productId]);
-  return result.length > 0 ? result[0] : null;
+  const products = await dbConn.getAllAsync('SELECT * FROM products WHERE product_id = ? AND is_available = 1', [productId]);
+  if (products.length === 0) return null;
+  const product = products[0];
+  return {
+    ...product,
+    image_source: getLocalImage(product.image_url)
+  };
 };
 
 export const getProductsByCategory = async (category) => {
   const dbConn = await getDb();
-  return await dbConn.getAllAsync('SELECT * FROM products WHERE category = ? AND is_available = 1', [category]);
+  const products = await dbConn.getAllAsync('SELECT * FROM products WHERE category = ? AND is_available = 1', [category]);
+  return products.map(p => ({
+    ...p,
+    image_source: getLocalImage(p.image_url)
+  }));
 };
 
 export const searchProducts = async (query) => {
   const dbConn = await getDb();
   const searchQuery = `%${query}%`;
-  return await dbConn.getAllAsync(
+  const products = await dbConn.getAllAsync(
     `SELECT * FROM products 
      WHERE is_available = 1 
      AND (name LIKE ? OR description LIKE ?)
      ORDER BY name`,
     [searchQuery, searchQuery]
   );
+  return products.map(p => ({
+    ...p,
+    image_source: getLocalImage(p.image_url)
+  }));
 };
 
 export const getCartItems = async (userId) => {
   const dbConn = await getDb();
-  return await dbConn.getAllAsync(
+  const items = await dbConn.getAllAsync(
     `SELECT c.cart_item_id, c.product_id, c.quantity, c.customization,
             p.name, p.price, p.image_url, p.discount
      FROM cart_items c
@@ -138,6 +296,10 @@ export const getCartItems = async (userId) => {
      ORDER BY c.added_at DESC`,
     [userId]
   );
+  return items.map(item => ({
+    ...item,
+    image_source: getLocalImage(item.image_url)
+  }));
 };
 
 export const addToCart = async (userId, productId, quantity = 1, customization = null) => {
@@ -279,13 +441,17 @@ export const getOrdersByUserId = async (userId) => {
 
 export const getOrderItems = async (orderId) => {
   const dbConn = await getDb();
-  return await dbConn.getAllAsync(
+  const items = await dbConn.getAllAsync(
     `SELECT oi.*, p.name, p.image_url
      FROM order_items oi
      JOIN products p ON oi.product_id = p.product_id
      WHERE oi.order_id = ?`,
     [orderId]
   );
+  return items.map(item => ({
+    ...item,
+    image_source: getLocalImage(item.image_url)
+  }));
 };
 
 export const createOrder = async (userId, totalAmount, pickupAddress, desiredPickupTime, paymentMethod, items) => {
@@ -352,7 +518,7 @@ export const getPromotions = async () => {
 
 export const getPopularProducts = async (limit = 10) => {
   const dbConn = await getDb();
-  return await dbConn.getAllAsync(
+  const products = await dbConn.getAllAsync(
     `SELECT p.*, COUNT(oi.order_item_id) as order_count
      FROM products p
      LEFT JOIN order_items oi ON p.product_id = oi.product_id
@@ -362,10 +528,15 @@ export const getPopularProducts = async (limit = 10) => {
      LIMIT ?`,
     [limit]
   );
+  return products.map(p => ({
+    ...p,
+    image_source: getLocalImage(p.image_url)
+  }));
 };
 
 export default {
   initDatabase,
+  getBanners,
   getProducts,
   getProductById,
   getProductsByCategory,

@@ -2,6 +2,7 @@ const { getDefaultConfig } = require('expo/metro-config');
 
 const config = getDefaultConfig(__dirname);
 
-config.resolver.assetExts.push('db');
+// Добавляем поддержку db и изображений как ассетов
+config.resolver.assetExts.push('db', 'jpg', 'jpeg', 'png', 'gif', 'webp');
 
 module.exports = config;

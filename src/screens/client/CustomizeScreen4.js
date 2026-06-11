@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 10,
   },
-  selected: { backgroundColor: '#FFE4E1', borderWidth: 1, borderColor: '#D2691E' },
+  selected: { backgroundColor: '#FFE4E1', borderWidth: 1, borderColor: '#FF147A' },
   optionName: { fontSize: 16, color: '#333' },
   optionPrice: { fontSize: 14, color: '#666' },
   totalContainer: {
@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
     marginVertical: 20,
   },
   totalText: { fontSize: 18, fontWeight: 'bold', color: '#333' },
-  totalPrice: { fontSize: 24, fontWeight: 'bold', color: '#D2691E' },
-  addButton: { backgroundColor: '#D2691E', padding: 16, borderRadius: 12, alignItems: 'center' },
+  totalPrice: { fontSize: 24, fontWeight: 'bold', color: '#FF147A' },
+  addButton: { backgroundColor: '#FFBCD9', padding: 16, borderRadius: 12, alignItems: 'center' },
   addButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 18 },
 });
