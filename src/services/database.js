@@ -48,7 +48,7 @@ const getLocalImage = (imagePath) => {
     'images/macaron_truffle.jpg': require('../../assets/images/macaron_truffle.jpg'),
     'images/mirror.jpg': require('../../assets/images/mirror.jpg'),
     'images/ny_blueberry.jpg': require('../../assets/images/ny_blueberry.jpg'),
-    'images/ny_cheescake.jpg': require('../../assets/images/ny_cheescake.jpg'),
+    'images/ny_cheescake.jpg': require('../../assets/images/ny_cheesecake.jpg'),
     'images/ny_raspberry.jpg': require('../../assets/images/ny_raspberry.jpg'),
     'images/opera.jpg': require('../../assets/images/opera.jpg'),
     'images/panna_cotta.jpg': require('../../assets/images/panna_cotta.jpg'),
