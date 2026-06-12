@@ -11,14 +11,15 @@ import {
   TextInput,
   RefreshControl,
   ScrollView,
+  Modal,
 } from 'react-native';
 import { getProducts } from '../../services/database';
-import BannerCarousel from '../../components/BannerCarousel';
+import { Ionicons } from '@expo/vector-icons';
 
 // Кэш для товаров
 let productsCache = null;
 let lastFetch = 0;
-const CACHE_TTL = 60000; // 60 секунд
+const CACHE_TTL = 60000;
 
 const getCachedProducts = async () => {
   const now = Date.now();
@@ -52,6 +53,13 @@ export default function CatalogScreen({ navigation }) {
     { id: 'desserts', title: 'Десерты' },
   ];
 
+  const sortOptions = [
+    { id: 'default', title: 'По умолчанию' },
+    { id: 'price_asc', title: 'Сначала дешевле' },
+    { id: 'price_desc', title: 'Сначала дороже' },
+    { id: 'discount', title: 'По размеру скидки' },
+  ];
+
   useEffect(() => {
     loadProducts();
   }, []);
@@ -70,18 +78,15 @@ export default function CatalogScreen({ navigation }) {
   const filterAndSort = () => {
     let result = [...products];
 
-    // Фильтр по категории
     if (selectedCategory !== 'all') {
       result = result.filter(p => p.category === selectedCategory);
     }
 
-    // Фильтр по поиску
     if (search.trim()) {
       const query = search.toLowerCase();
       result = result.filter(p => p.name.toLowerCase().includes(query));
     }
 
-    // Сортировка
     switch (sortOrder) {
       case 'price_asc':
         result.sort((a, b) => (a.price || 0) - (b.price || 0));
@@ -117,65 +122,51 @@ export default function CatalogScreen({ navigation }) {
     alert(`🍰 ${product.name} добавлен в корзину!`);
   };
 
+  const getSortButtonText = () => {
+    const option = sortOptions.find(o => o.id === sortOrder);
+    return option ? option.title : 'Сортировка';
+  };
+
   const renderProduct = ({ item }) => {
     const finalPrice = getFinalPrice(item);
-    // Используем изображение из БД или заглушку
-    const imageUrl = item.image_url || 'https://via.placeholder.com/150?text=No+Image';
+    const imageSource = item.image_source || { uri: 'https://via.placeholder.com/150?text=No+Image' };
 
     return (
       <TouchableOpacity
         style={styles.card}
         onPress={() => navigation.navigate('ProductDetail', { productId: item.product_id })}
-        activeOpacity={0.8}
+        activeOpacity={0.95}
       >
-        <Image source={{ uri: imageUrl }} style={styles.image} />
+        <Image source={imageSource} style={styles.image} />
         <View style={styles.cardContent}>
-          {/* Название торта */}
           <Text style={styles.name}>{item.name}</Text>
           
-          {/* Начинка (если есть) */}
-          {item.filling && (
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Начинка:</Text>
-              <Text style={styles.detailValue}>{item.filling}</Text>
+          <View style={styles.detailsRow}>
+            <View style={styles.detailsLeft}>
+              {item.filling && (
+                <Text style={styles.detailText}>
+                  <Text style={styles.detailLabel}>Начинка: </Text>
+                  {item.filling}
+                </Text>
+              )}
+              {item.decor && (
+                <Text style={styles.detailText}>
+                  <Text style={styles.detailLabel}>Декор: </Text>
+                  {item.decor}
+                </Text>
+              )}
             </View>
-          )}
-          
-          {/* Декор (если есть) */}
-          {item.decor && (
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Декор:</Text>
-              <Text style={styles.detailValue}>{item.decor}</Text>
-            </View>
-          )}
-          
-          {/* Калории (если есть) */}
-          {item.calories && (
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Калории:</Text>
-              <Text style={styles.detailValue}>{item.calories} ккал</Text>
-            </View>
-          )}
-          
-          {/* Цена */}
-          <View style={styles.priceRow}>
-            {item.discount && item.discount > 0 ? (
-              <>
-                <Text style={styles.oldPrice}>{item.price} ₽</Text>
-                <Text style={styles.price}>{Math.round(finalPrice)} ₽</Text>
-                <View style={styles.discountBadge}>
-                  <Text style={styles.discountText}>-{item.discount}%</Text>
-                </View>
-              </>
-            ) : (
-              <Text style={styles.price}>{item.price} ₽</Text>
+            {item.calories && (
+              <Text style={styles.calories}>{item.calories} ккал</Text>
             )}
           </View>
           
-          {/* Кнопка добавления в корзину */}
-          <TouchableOpacity style={styles.addButton} onPress={() => handleAddToCart(item)}>
-            <Text style={styles.addButtonText}>В корзину</Text>
-          </TouchableOpacity>
+          <View style={styles.bottomRow}>
+            <Text style={styles.price}>{item.price} ₽</Text>
+            <TouchableOpacity style={styles.addButton} onPress={() => handleAddToCart(item)}>
+              <Text style={styles.addButtonText}>+</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </TouchableOpacity>
     );
@@ -207,27 +198,22 @@ export default function CatalogScreen({ navigation }) {
   }
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Шапка с названием и контактами (как на изображении) */}
+    <View style={styles.container}>
+      {/* Розовый верх с поиском */}
       <View style={styles.header}>
-        <Text style={styles.logo}>Weddingcake</Text>
-        <Text style={styles.clientMark}>Клиентская компания</Text>
-        <Text style={styles.phone}>00 123 456 789</Text>
-        <Text style={styles.website}>www.yourwebsite.com</Text>
-      </View>
-
-      {/* Баннер - карусель */}
-      <BannerCarousel navigation={navigation} />
-
-      {/* Поиск */}
-      <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Поиск десертов..."
-          placeholderTextColor="#828282"
-          value={search}
-          onChangeText={setSearch}
-        />
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color="#999" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Поиск"
+            placeholderTextColor="#999"
+            value={search}
+            onChangeText={setSearch}
+          />
+        </View>
+        <TouchableOpacity style={styles.filterButton} onPress={() => setShowSortMenu(true)}>
+          <Ionicons name="options-outline" size={24} color="#333" />
+        </TouchableOpacity>
       </View>
 
       {/* Категории */}
@@ -240,34 +226,6 @@ export default function CatalogScreen({ navigation }) {
         contentContainerStyle={styles.categoriesList}
       />
 
-      {/* Сортировка */}
-      <View style={styles.sortContainer}>
-        <TouchableOpacity style={styles.sortButton} onPress={() => setShowSortMenu(!showSortMenu)}>
-          <Text style={styles.sortButtonText}>
-            {sortOrder === 'default' && 'Сортировка ▼'}
-            {sortOrder === 'price_asc' && 'Сначала дешевле ▼'}
-            {sortOrder === 'price_desc' && 'Сначала дороже ▼'}
-            {sortOrder === 'discount' && 'По скидке ▼'}
-          </Text>
-        </TouchableOpacity>
-        {showSortMenu && (
-          <View style={styles.sortMenu}>
-            <TouchableOpacity style={styles.sortMenuItem} onPress={() => handleSort('default')}>
-              <Text style={styles.sortMenuItemText}>По умолчанию</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.sortMenuItem} onPress={() => handleSort('price_asc')}>
-              <Text style={styles.sortMenuItemText}>Сначала дешевле</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.sortMenuItem} onPress={() => handleSort('price_desc')}>
-              <Text style={styles.sortMenuItemText}>Сначала дороже</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.sortMenuItem} onPress={() => handleSort('discount')}>
-              <Text style={styles.sortMenuItemText}>По размеру скидки</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
-
       {/* Список товаров */}
       <FlatList
         data={filtered}
@@ -275,7 +233,6 @@ export default function CatalogScreen({ navigation }) {
         renderItem={renderProduct}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
-        scrollEnabled={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF69B4']} />
         }
@@ -285,7 +242,45 @@ export default function CatalogScreen({ navigation }) {
           </View>
         }
       />
-    </ScrollView>
+
+      {/* Модальное окно сортировки */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showSortMenu}
+        onRequestClose={() => setShowSortMenu(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1} 
+          onPress={() => setShowSortMenu(false)}
+        >
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Сортировка</Text>
+            {sortOptions.map((option) => (
+              <TouchableOpacity
+                key={option.id}
+                style={[
+                  styles.modalOption,
+                  sortOrder === option.id && styles.modalOptionActive
+                ]}
+                onPress={() => handleSort(option.id)}
+              >
+                <Text style={[
+                  styles.modalOptionText,
+                  sortOrder === option.id && styles.modalOptionTextActive
+                ]}>
+                  {option.title}
+                </Text>
+                {sortOrder === option.id && (
+                  <Ionicons name="checkmark" size={20} color="#FF69B4" />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    </View>
   );
 }
 
@@ -295,34 +290,138 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   header: {
+    flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 16,
     paddingTop: 48,
     paddingBottom: 16,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    backgroundColor: '#FFBCD9',
   },
-  logo: {
-    fontSize: 28,
+  searchContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 44,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#333',
+    paddingVertical: 8,
+  },
+  filterButton: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+  },
+  categoriesList: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  categoryChip: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#F0F0F0',
+    marginRight: 8,
+  },
+  categoryChipActive: {
+    backgroundColor: '#FF69B4',
+  },
+  categoryText: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  categoryTextActive: {
+    color: '#FFFFFF',
+  },
+  list: {
+    paddingHorizontal: 16,
+    paddingBottom: 20,
+  },
+  card: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
+    overflow: 'hidden',
+  },
+  image: {
+    width: 120,
+    height: 120,
+    backgroundColor: '#F8F8F8',
+  },
+  cardContent: {
+    flex: 1,
+    padding: 12,
+    justifyContent: 'space-between',
+  },
+  name: {
+    fontSize: 16,
     fontWeight: '700',
     color: '#2C2C2C',
-    letterSpacing: 0.5,
+    marginBottom: 8,
+    textAlign: 'center',
   },
-  clientMark: {
+  detailsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  detailsLeft: {
+    flex: 1,
+  },
+  detailText: {
     fontSize: 12,
-    color: '#999999',
+    color: '#555',
+    marginBottom: 2,
+  },
+  detailLabel: {
+    fontWeight: '600',
+    color: '#333',
+  },
+  calories: {
+    fontSize: 12,
+    color: '#999',
+    textAlign: 'right',
+  },
+  bottomRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginTop: 4,
   },
-  phone: {
+  price: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '700',
     color: '#2C2C2C',
-    marginTop: 8,
   },
-  website: {
-    fontSize: 12,
-    color: '#999999',
-    marginTop: 2,
+  addButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FF69B4',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addButtonText: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: 'bold',
   },
   center: {
     flex: 1,
@@ -333,183 +432,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 14,
-    color: '#999999',
-  },
-  searchContainer: {
-    backgroundColor: '#F8F8F8',
-    margin: 16,
-    marginTop: 12,
-    marginBottom: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#F0F0F0',
-  },
-  searchInput: {
-    fontSize: 16,
-    padding: 12,
-    paddingHorizontal: 16,
-    color: '#2C2C2C',
-  },
-  categoriesList: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  categoryChip: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#F5F5F5',
-    marginHorizontal: 4,
-  },
-  categoryChipActive: {
-    backgroundColor: '#FF69B4',
-  },
-  categoryText: {
-    fontSize: 14,
-    color: '#666666',
-    fontWeight: '500',
-  },
-  categoryTextActive: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-  sortContainer: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingHorizontal: 16,
-    marginTop: 4,
-    marginBottom: 8,
-    position: 'relative',
-    zIndex: 10,
-  },
-  sortButton: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#FF69B4',
-  },
-  sortButtonText: {
-    fontSize: 13,
-    color: '#FF69B4',
-    fontWeight: '500',
-  },
-  sortMenu: {
-    position: 'absolute',
-    top: 35,
-    right: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
-    zIndex: 100,
-    minWidth: 160,
-  },
-  sortMenuItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-  sortMenuItemText: {
-    fontSize: 14,
-    color: '#2C2C2C',
-  },
-  list: {
-    paddingHorizontal: 16,
-    paddingBottom: 30,
-  },
-  card: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    marginBottom: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#F0F0F0',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  image: {
-    width: 100,
-    height: 100,
-    borderRadius: 12,
-    backgroundColor: '#F8F8F8',
-  },
-  cardContent: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  name: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#2C2C2C',
-    marginBottom: 6,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 3,
-  },
-  detailLabel: {
-    fontSize: 11,
-    color: '#999999',
-    width: 55,
-  },
-  detailValue: {
-    fontSize: 11,
-    color: '#666666',
-    flex: 1,
-  },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    marginTop: 6,
-    marginBottom: 8,
-  },
-  oldPrice: {
-    fontSize: 13,
-    color: '#999999',
-    textDecorationLine: 'line-through',
-    marginRight: 8,
-  },
-  price: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#FF69B4',
-  },
-  discountBadge: {
-    backgroundColor: '#FFE4E1',
-    borderRadius: 12,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    marginLeft: 8,
-  },
-  discountText: {
-    fontSize: 10,
-    color: '#FF69B4',
-    fontWeight: 'bold',
-  },
-  addButton: {
-    backgroundColor: '#FF69B4',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  addButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 13,
+    color: '#999',
   },
   emptyContainer: {
     alignItems: 'center',
@@ -517,6 +440,44 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: '#999999',
+    color: '#999',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '80%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  modalOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  modalOptionActive: {
+    backgroundColor: '#FFF0F5',
+  },
+  modalOptionText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  modalOptionTextActive: {
+    color: '#FF69B4',
+    fontWeight: '600',
   },
 });

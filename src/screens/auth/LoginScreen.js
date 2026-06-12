@@ -149,24 +149,25 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 30,
+    paddingHorizontal: 20,
     backgroundColor: '#fff',
   },
   maskedView: {
     marginBottom: 40,
     alignSelf: 'center',
+    width: '100%',
   },
   title: {
-    fontSize: 42,
+    fontSize: 32,
     fontWeight: 'bold',
     textAlign: 'center',
     letterSpacing: 1,
     fontFamily: Platform.OS === 'ios' ? 'Poppins-Bold' : 'Poppins',
-    color: '#000', // цвет не важен, это маска
+    color: '#000',
   },
   gradientMask: {
-    width: 280,
-    height: 55,
+    width: '100%',
+    height: 50,
   },
   inputContainer: {
     width: '100%',
