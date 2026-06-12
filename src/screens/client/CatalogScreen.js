@@ -122,11 +122,6 @@ export default function CatalogScreen({ navigation }) {
     alert(`🍰 ${product.name} добавлен в корзину!`);
   };
 
-  const getSortButtonText = () => {
-    const option = sortOptions.find(o => o.id === sortOrder);
-    return option ? option.title : 'Сортировка';
-  };
-
   const renderProduct = ({ item }) => {
     const finalPrice = getFinalPrice(item);
     const imageSource = item.image_source || { uri: 'https://via.placeholder.com/150?text=No+Image' };
@@ -141,26 +136,28 @@ export default function CatalogScreen({ navigation }) {
         <View style={styles.cardContent}>
           <Text style={styles.name}>{item.name}</Text>
           
-          <View style={styles.detailsRow}>
-            <View style={styles.detailsLeft}>
-              {item.filling && (
-                <Text style={styles.detailText}>
-                  <Text style={styles.detailLabel}>Начинка: </Text>
-                  {item.filling}
-                </Text>
-              )}
-              {item.decor && (
-                <Text style={styles.detailText}>
-                  <Text style={styles.detailLabel}>Декор: </Text>
-                  {item.decor}
-                </Text>
-              )}
-            </View>
-            {item.calories && (
-              <Text style={styles.calories}>{item.calories} ккал</Text>
+          {/* Начинка и Декор - по левому краю */}
+          <View style={styles.detailsLeft}>
+            {item.filling && (
+              <Text style={styles.detailText}>
+                <Text style={styles.detailLabel}>Начинка: </Text>
+                {item.filling}
+              </Text>
+            )}
+            {item.decor && (
+              <Text style={styles.detailText}>
+                <Text style={styles.detailLabel}>Декор: </Text>
+                {item.decor}
+              </Text>
             )}
           </View>
           
+          {/* Калории - по правому краю */}
+          {item.calories && (
+            <Text style={styles.calories}>{item.calories} ккал</Text>
+          )}
+          
+          {/* Цена - посередине, кнопка + справа */}
           <View style={styles.bottomRow}>
             <Text style={styles.price}>{item.price} ₽</Text>
             <TouchableOpacity style={styles.addButton} onPress={() => handleAddToCart(item)}>
@@ -301,7 +298,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
     borderRadius: 12,
     paddingHorizontal: 12,
     height: 44,
@@ -367,7 +364,7 @@ const styles = StyleSheet.create({
   cardContent: {
     flex: 1,
     padding: 12,
-    justifyContent: 'space-between',
+    position: 'relative',
   },
   name: {
     fontSize: 16,
@@ -376,14 +373,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     textAlign: 'center',
   },
-  detailsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
-  },
   detailsLeft: {
-    flex: 1,
+    marginBottom: 4,
   },
   detailText: {
     fontSize: 12,
@@ -398,6 +389,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#999',
     textAlign: 'right',
+    marginBottom: 8,
   },
   bottomRow: {
     flexDirection: 'row',

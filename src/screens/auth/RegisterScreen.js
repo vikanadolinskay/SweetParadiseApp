@@ -327,7 +327,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     backgroundColor: '#fff',
   },
   maskedView: {
@@ -336,16 +336,16 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   title: {
-    fontSize: 32,
+    fontSize: 24,
     fontWeight: 'bold',
     textAlign: 'center',
-    letterSpacing: 1,
+    letterSpacing: 0.5,
     fontFamily: Platform.OS === 'ios' ? 'Poppins-Bold' : 'Poppins',
     color: '#000',
   },
   gradientMask: {
     width: '100%',
-    height: 50,
+    height: 40,
   },
   inputContainer: {
     width: '100%',

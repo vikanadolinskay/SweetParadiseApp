@@ -1,8 +1,18 @@
+// @ts-nocheck
+import * as SQLite from 'expo-sqlite';
+import * as FileSystem from 'expo-file-system/legacy';
+import { Asset } from 'expo-asset';
+
+const DB_NAME = 'sweet.db';
+
+let db = null;
+
+// Функция для получения локального изображения
 const getLocalImage = (imagePath) => {
   if (!imagePath) return null;
   
   const imageMap = {
-    // Товары (из assets/images/)
+    // Товары
     'images/bant_classic.jpg': require('../../assets/images/bant_classic.jpg'),
     'images/bant_mini.jpg': require('../../assets/images/bant_mini.jpg'),
     'images/bant_pearl.jpg': require('../../assets/images/bant_pearl.jpg'),
@@ -38,7 +48,7 @@ const getLocalImage = (imagePath) => {
     'images/macaron_truffle.jpg': require('../../assets/images/macaron_truffle.jpg'),
     'images/mirror.jpg': require('../../assets/images/mirror.jpg'),
     'images/ny_blueberry.jpg': require('../../assets/images/ny_blueberry.jpg'),
-    'images/ny_cheesecake.jpg': require('../../assets/images/ny_cheesecake.jpg'),
+    'images/ny_cheescake.jpg': require('../../assets/images/ny_cheesecake.jpg'),
     'images/ny_raspberry.jpg': require('../../assets/images/ny_raspberry.jpg'),
     'images/opera.jpg': require('../../assets/images/opera.jpg'),
     'images/panna_cotta.jpg': require('../../assets/images/panna_cotta.jpg'),
