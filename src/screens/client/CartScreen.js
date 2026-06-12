@@ -9,10 +9,14 @@ import {
   Alert,
   Image,
   TextInput,
+  ScrollView,
+  Modal,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { getCartItems, removeFromCart, updateCartQuantity } from '../../services/database';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function CartScreen({ navigation }) {
   const [cart, setCart] = useState([]);
@@ -21,8 +25,23 @@ export default function CartScreen({ navigation }) {
   const [promoApplied, setPromoApplied] = useState(false);
   const [discount, setDiscount] = useState(0);
   const [userId, setUserId] = useState(null);
+  const [pickupAddress, setPickupAddress] = useState('г. Таганрог, ул. Петровская 711');
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardExpiry, setCardExpiry] = useState('');
+  const [cardCvv, setCardCvv] = useState('');
+  const [cardHolder, setCardHolder] = useState('');
+  const [savedCard, setSavedCard] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [pickupDate, setPickupDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
-  // Получаем реальный userId из сессии
+  const pickupAddresses = [
+    'г. Таганрог, ул. Петровская 711',
+    'г. Таганрог, ул. Чехова 22',
+    'г. Таганрог, пер. Итальянский 5',
+  ];
+
   useEffect(() => {
     const getUserId = async () => {
       const userStr = await AsyncStorage.getItem('user');
@@ -50,7 +69,6 @@ export default function CartScreen({ navigation }) {
     setLoading(false);
   };
 
-  // Функция для корректного парсинга customization
   const parseCustomization = (customization) => {
     if (!customization) return null;
     if (typeof customization === 'string') {
@@ -63,7 +81,6 @@ export default function CartScreen({ navigation }) {
     return customization;
   };
 
-  // Форматирование текста персонализации
   const getCustomizationText = (customization) => {
     const parsed = parseCustomization(customization);
     if (!parsed) return null;
@@ -111,17 +128,59 @@ export default function CartScreen({ navigation }) {
     }
   };
 
+  const handleSaveCard = () => {
+    if (cardNumber && cardExpiry && cardCvv && cardHolder) {
+      setSavedCard({ 
+        number: cardNumber.slice(-4), 
+        expiry: cardExpiry,
+        holder: cardHolder 
+      });
+      setPaymentMethod('card');
+      setShowPaymentModal(false);
+      Alert.alert('Успешно', 'Карта сохранена');
+    } else {
+      Alert.alert('Ошибка', 'Заполните все поля карты');
+    }
+  };
+
+  const formatDate = (date) => {
+    return date.toLocaleDateString('ru-RU', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  };
+
+  const handleProceedToCheckout = () => {
+    if (cart.length === 0) {
+      Alert.alert('Корзина пуста', 'Добавьте товары в корзину');
+      return;
+    }
+    
+    navigation.navigate('Checkout', { 
+      total, 
+      cart,
+      pickupAddress,
+      paymentMethod,
+      savedCard,
+      pickupDate: formatDate(pickupDate)
+    });
+  };
+
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const discountAmount = (subtotal * discount) / 100;
   const total = subtotal - discountAmount;
 
   const renderCartItem = ({ item }) => {
-    const imageUrl = item.image_url || 'https://via.placeholder.com/60x60?text=Cake';
+    const imageSource = item.image_source || { uri: item.image_url || 'https://via.placeholder.com/60x60' };
     const customizationText = getCustomizationText(item.customization);
 
     return (
       <View style={styles.cartItem}>
-        <Image source={{ uri: imageUrl }} style={styles.itemImage} />
+        <TouchableOpacity onPress={() => handleRemove(item.cart_item_id)} style={styles.removeIcon}>
+          <Ionicons name="close-circle" size={24} color="#FF147A" />
+        </TouchableOpacity>
+        <Image source={imageSource} style={styles.itemImage} />
         <View style={styles.itemDetails}>
           <Text style={styles.itemName}>{item.name}</Text>
           {customizationText && (
@@ -129,27 +188,24 @@ export default function CartScreen({ navigation }) {
               {customizationText}
             </Text>
           )}
-          <Text style={styles.itemPrice}>{item.price} ₽</Text>
-        </View>
-        <View style={styles.itemRight}>
-          <View style={styles.quantityContainer}>
-            <TouchableOpacity
-              style={styles.qtyBtn}
-              onPress={() => handleUpdateQuantity(item.cart_item_id, item.product_id, item.quantity - 1)}
-            >
-              <Text style={styles.qtyBtnText}>-</Text>
-            </TouchableOpacity>
-            <Text style={styles.quantityText}>{item.quantity}</Text>
-            <TouchableOpacity
-              style={styles.qtyBtn}
-              onPress={() => handleUpdateQuantity(item.cart_item_id, item.product_id, item.quantity + 1)}
-            >
-              <Text style={styles.qtyBtnText}>+</Text>
-            </TouchableOpacity>
+          <View style={styles.itemBottomRow}>
+            <Text style={styles.itemPrice}>{item.price} ₽</Text>
+            <View style={styles.quantityContainer}>
+              <TouchableOpacity
+                style={styles.qtyBtn}
+                onPress={() => handleUpdateQuantity(item.cart_item_id, item.product_id, item.quantity - 1)}
+              >
+                <Text style={styles.qtyBtnText}>-</Text>
+              </TouchableOpacity>
+              <Text style={styles.quantityText}>{item.quantity}</Text>
+              <TouchableOpacity
+                style={styles.qtyBtn}
+                onPress={() => handleUpdateQuantity(item.cart_item_id, item.product_id, item.quantity + 1)}
+              >
+                <Text style={styles.qtyBtnText}>+</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-          <TouchableOpacity onPress={() => handleRemove(item.cart_item_id)}>
-            <Text style={styles.removeText}>Удалить</Text>
-          </TouchableOpacity>
         </View>
       </View>
     );
@@ -158,7 +214,7 @@ export default function CartScreen({ navigation }) {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#D2691E" />
+        <ActivityIndicator size="large" color="#FF147A" />
       </View>
     );
   }
@@ -166,6 +222,7 @@ export default function CartScreen({ navigation }) {
   if (cart.length === 0) {
     return (
       <View style={styles.center}>
+        <Ionicons name="cart-outline" size={80} color="#ddd" />
         <Text style={styles.emptyText}>Корзина пуста</Text>
         <TouchableOpacity style={styles.shopBtn} onPress={() => navigation.navigate('Каталог')}>
           <Text style={styles.shopBtnText}>Перейти в каталог</Text>
@@ -176,85 +233,223 @@ export default function CartScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <FlatList
-        data={cart}
-        keyExtractor={(item) => item.cart_item_id.toString()}
-        renderItem={renderCartItem}
-        contentContainerStyle={styles.list}
-        showsVerticalScrollIndicator={false}
-      />
-
-      {/* Блок оплаты */}
-      <View style={styles.paymentBlock}>
-        <Text style={styles.sectionTitle}>ОПЛАТА</Text>
-        <View style={styles.paymentCard}>
-          <Text style={styles.cardText}>Visa *1234</Text>
-          <TouchableOpacity>
-            <Text style={styles.changeText}>Изменить</Text>
-          </TouchableOpacity>
-        </View>
+      {/* Заголовок */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Корзина</Text>
       </View>
 
-      {/* Промокод */}
-      <View style={styles.promoBlock}>
-        <Text style={styles.sectionTitle}>ПРОМОКОД</Text>
-        <View style={styles.promoRow}>
-          <TextInput
-            style={styles.promoInput}
-            placeholder="Введите промокод"
-            placeholderTextColor="#999"
-            value={promoCode}
-            onChangeText={setPromoCode}
-            editable={!promoApplied}
-          />
-          {!promoApplied ? (
-            <TouchableOpacity style={styles.applyBtn} onPress={applyPromoCode}>
-              <Text style={styles.applyBtnText}>Применить</Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.appliedBadge}>
-              <Text style={styles.appliedText}>✓ Применён</Text>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Список товаров */}
+        <View style={styles.cartList}>
+          {cart.map((item) => (
+            <View key={item.cart_item_id}>
+              {renderCartItem({ item })}
             </View>
+          ))}
+        </View>
+
+        {/* Блок оплаты */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>ОПЛАТА</Text>
+          <View style={styles.paymentCard}>
+            {savedCard ? (
+              <>
+                <View>
+                  <Text style={styles.cardText}>Visa *{savedCard.number}</Text>
+                  <Text style={styles.cardHolderText}>{savedCard.holder}</Text>
+                </View>
+                <TouchableOpacity onPress={() => setShowPaymentModal(true)}>
+                  <Text style={styles.changeText}>Изменить</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <TouchableOpacity style={styles.addCardBtn} onPress={() => setShowPaymentModal(true)}>
+                <Ionicons name="card-outline" size={20} color="#FF147A" />
+                <Text style={styles.addCardText}>+ Добавить карту</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        {/* Промокод */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>ПРОМОКОД</Text>
+          <View style={styles.promoRow}>
+            <TextInput
+              style={styles.promoInput}
+              placeholder="Введите промокод"
+              placeholderTextColor="#999"
+              value={promoCode}
+              onChangeText={setPromoCode}
+              editable={!promoApplied}
+            />
+            {!promoApplied ? (
+              <TouchableOpacity style={styles.applyBtn} onPress={applyPromoCode}>
+                <Text style={styles.applyBtnText}>Применить</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.appliedBadge}>
+                <Text style={styles.appliedText}>✓ Применён</Text>
+              </View>
+            )}
+          </View>
+          {promoApplied && (
+            <Text style={styles.discountText}>Скидка: {discount}% ({Math.round(discountAmount)} ₽)</Text>
           )}
         </View>
-        {promoApplied && (
-          <Text style={styles.discountText}>Скидка: {discount}% ({Math.round(discountAmount)} ₽)</Text>
-        )}
-      </View>
 
-      {/* Позиции и итог */}
-      <View style={styles.totalBlock}>
-        <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>ПОЗИЦИИ</Text>
-          <Text style={styles.totalLabel}>ЦЕНА</Text>
-        </View>
-        
-        {cart.map((item) => (
-          <View key={item.cart_item_id} style={styles.totalItemRow}>
-            <Text style={styles.totalItemName}>
-              {item.name} × {item.quantity}
-            </Text>
-            <Text style={styles.totalItemPrice}>{item.price * item.quantity} ₽</Text>
+        {/* Позиции и итог */}
+        <View style={styles.section}>
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>ПОЗИЦИИ</Text>
+            <Text style={styles.totalLabel}>ЦЕНА</Text>
           </View>
-        ))}
+          
+          {cart.map((item) => (
+            <View key={item.cart_item_id} style={styles.totalItemRow}>
+              <Text style={styles.totalItemName}>
+                {item.name} × {item.quantity}
+              </Text>
+              <Text style={styles.totalItemPrice}>{item.price * item.quantity} ₽</Text>
+            </View>
+          ))}
 
-        <View style={styles.pickupRow}>
-          <Text style={styles.pickupLabel}>ТОЧКА САМОВЫВОЗА:</Text>
-          <Text style={styles.pickupAddress}>г. Таганрог, ул. Петровская 711</Text>
+          {/* Точка самовывоза */}
+          <View style={styles.pickupRow}>
+            <Text style={styles.pickupLabel}>ТОЧКА САМОВЫВОЗА:</Text>
+            <View style={styles.pickupPicker}>
+              {pickupAddresses.map((addr) => (
+                <TouchableOpacity
+                  key={addr}
+                  style={[styles.pickupOption, pickupAddress === addr && styles.pickupOptionActive]}
+                  onPress={() => setPickupAddress(addr)}
+                >
+                  <Text style={[styles.pickupOptionText, pickupAddress === addr && styles.pickupOptionTextActive]}>
+                    {addr.length > 30 ? addr.substring(0, 27) + '...' : addr}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Итого с фоном */}
+          <LinearGradient
+            colors={['#FFCBBB', '#FFCBBB']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.finalTotalGradient}
+          >
+            <View style={styles.finalTotalRow}>
+              <Text style={styles.finalTotalLabel}>Итого:</Text>
+              <Text style={styles.finalTotalPrice}>{Math.round(total)} ₽</Text>
+            </View>
+          </LinearGradient>
+
+          <TouchableOpacity 
+            style={styles.payButton}
+            onPress={handleProceedToCheckout}
+          >
+            <LinearGradient
+              colors={['#FF147A', '#FF69B4']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.payGradient}
+            >
+              <Text style={styles.payButtonText}>Оформить заказ</Text>
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
+      </ScrollView>
 
-        <View style={styles.finalTotalRow}>
-          <Text style={styles.finalTotalLabel}>Итого:</Text>
-          <Text style={styles.finalTotalPrice}>{Math.round(total)} ₽</Text>
+      {/* Модальное окно добавления карты */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showPaymentModal}
+        onRequestClose={() => setShowPaymentModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Данные карты</Text>
+              <TouchableOpacity onPress={() => setShowPaymentModal(false)}>
+                <Ionicons name="close" size={24} color="#999" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.cardPreview}>
+              <Text style={styles.cardPreviewNumber}>
+                {cardNumber || '•••• •••• •••• ••••'}
+              </Text>
+              <View style={styles.cardPreviewRow}>
+                <Text style={styles.cardPreviewExpiry}>{cardExpiry || 'MM/YY'}</Text>
+                <Ionicons name="card" size={32} color="#fff" />
+              </View>
+            </View>
+
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Номер карты"
+              placeholderTextColor="#999"
+              keyboardType="numeric"
+              maxLength={19}
+              value={cardNumber}
+              onChangeText={(text) => {
+                let formatted = text.replace(/\s/g, '');
+                if (formatted.length > 16) formatted = formatted.slice(0, 16);
+                formatted = formatted.replace(/(.{4})/g, '$1 ').trim();
+                setCardNumber(formatted);
+              }}
+            />
+            
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Имя держателя (как на карте)"
+              placeholderTextColor="#999"
+              value={cardHolder}
+              onChangeText={setCardHolder}
+              autoCapitalize="characters"
+            />
+            
+            <View style={styles.modalRow}>
+              <TextInput
+                style={[styles.modalInput, styles.modalHalfInput]}
+                placeholder="MM/YY"
+                placeholderTextColor="#999"
+                value={cardExpiry}
+                onChangeText={setCardExpiry}
+                maxLength={5}
+              />
+              <TextInput
+                style={[styles.modalInput, styles.modalHalfInput]}
+                placeholder="CVC"
+                placeholderTextColor="#999"
+                keyboardType="numeric"
+                maxLength={3}
+                secureTextEntry
+                value={cardCvv}
+                onChangeText={setCardCvv}
+              />
+            </View>
+
+            <TouchableOpacity style={styles.modalSaveBtn} onPress={handleSaveCard}>
+              <LinearGradient
+                colors={['#FF147A', '#FF69B4']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.modalSaveGradient}
+              >
+                <Text style={styles.modalSaveBtnText}>Сохранить карту</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <Text style={styles.modalSecureText}>
+              <Ionicons name="shield-checkmark" size={14} color="#4CAF50" /> 
+              Данные защищены
+            </Text>
+          </View>
         </View>
-
-        <TouchableOpacity 
-          style={styles.payButton}
-          onPress={() => navigation.navigate('Checkout', { total, cart })}
-        >
-          <Text style={styles.payButtonText}>Оплатить</Text>
-        </TouchableOpacity>
-      </View>
+      </Modal>
     </View>
   );
 }
@@ -262,30 +457,60 @@ export default function CartScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#FFFFFF',
+  },
+  header: {
+    backgroundColor: '#FFBCD9',
+    paddingTop: 48,
+    paddingBottom: 16,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#2C2C2C',
   },
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#fff',
   },
   emptyText: {
     fontSize: 16,
     color: '#999',
-    marginBottom: 16,
+    marginTop: 16,
+    marginBottom: 20,
   },
   shopBtn: {
-    backgroundColor: '#D2691E',
+    backgroundColor: '#FF147A',
     paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingVertical: 12,
+    borderRadius: 25,
   },
   shopBtnText: {
     color: '#fff',
     fontWeight: 'bold',
+    fontSize: 16,
   },
-  list: {
+  cartList: {
     padding: 12,
+  },
+  section: {
+    backgroundColor: '#fff',
+    padding: 16,
+    marginTop: 8,
+    marginHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#FF147A',
+    marginBottom: 12,
+    letterSpacing: 1,
   },
   cartItem: {
     flexDirection: 'row',
@@ -293,17 +518,25 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
+    position: 'relative',
+  },
+  removeIcon: {
+    position: 'absolute',
+    left: -8,
+    top: '50%',
+    marginTop: -12,
+    zIndex: 10,
+    backgroundColor: '#fff',
+    borderRadius: 12,
   },
   itemImage: {
     width: 60,
     height: 60,
     borderRadius: 8,
     backgroundColor: '#f0f0f0',
+    marginLeft: 12,
   },
   itemDetails: {
     flex: 1,
@@ -312,27 +545,27 @@ const styles = StyleSheet.create({
   itemName: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#2C2C2C',
   },
   itemCustom: {
     fontSize: 11,
     color: '#888',
     marginTop: 2,
   },
-  itemPrice: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#D2691E',
-    marginTop: 4,
-  },
-  itemRight: {
-    alignItems: 'flex-end',
+  itemBottomRow: {
+    flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  itemPrice: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#2C2C2C',
   },
   quantityContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
   },
   qtyBtn: {
     width: 28,
@@ -345,30 +578,13 @@ const styles = StyleSheet.create({
   qtyBtnText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#2C2C2C',
   },
   quantityText: {
     marginHorizontal: 12,
     fontSize: 14,
     fontWeight: '500',
-  },
-  removeText: {
-    color: '#ff6b6b',
-    fontSize: 12,
-  },
-  paymentBlock: {
-    backgroundColor: '#fff',
-    padding: 16,
-    marginTop: 8,
-    marginHorizontal: 12,
-    borderRadius: 12,
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#999',
-    marginBottom: 12,
-    letterSpacing: 1,
+    color: '#2C2C2C',
   },
   paymentCard: {
     flexDirection: 'row',
@@ -378,18 +594,27 @@ const styles = StyleSheet.create({
   cardText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#333',
+    color: '#2C2C2C',
+  },
+  cardHolderText: {
+    fontSize: 11,
+    color: '#999',
+    marginTop: 2,
   },
   changeText: {
     fontSize: 12,
-    color: '#D2691E',
+    color: '#FF147A',
   },
-  promoBlock: {
-    backgroundColor: '#fff',
-    padding: 16,
-    marginTop: 8,
-    marginHorizontal: 12,
-    borderRadius: 12,
+  addCardBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  addCardText: {
+    fontSize: 14,
+    color: '#FF147A',
+    fontWeight: '500',
+    marginLeft: 8,
   },
   promoRow: {
     flexDirection: 'row',
@@ -406,7 +631,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   applyBtn: {
-    backgroundColor: '#D2691E',
+    backgroundColor: '#FF147A',
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 8,
@@ -432,14 +657,6 @@ const styles = StyleSheet.create({
     color: '#4CAF50',
     marginTop: 8,
   },
-  totalBlock: {
-    backgroundColor: '#fff',
-    padding: 16,
-    marginTop: 8,
-    marginHorizontal: 12,
-    borderRadius: 12,
-    marginBottom: 20,
-  },
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -449,9 +666,9 @@ const styles = StyleSheet.create({
     borderBottomColor: '#eee',
   },
   totalLabel: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 'bold',
-    color: '#999',
+    color: '#FF147A',
     letterSpacing: 1,
   },
   totalItemRow: {
@@ -461,12 +678,12 @@ const styles = StyleSheet.create({
   },
   totalItemName: {
     fontSize: 13,
-    color: '#555',
+    color: '#2C2C2C',
     flex: 2,
   },
   totalItemPrice: {
     fontSize: 13,
-    color: '#333',
+    color: '#2C2C2C',
     fontWeight: '500',
   },
   pickupRow: {
@@ -476,43 +693,146 @@ const styles = StyleSheet.create({
     borderTopColor: '#eee',
   },
   pickupLabel: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#999',
-    marginBottom: 4,
-  },
-  pickupAddress: {
     fontSize: 14,
-    color: '#333',
+    fontWeight: 'bold',
+    color: '#FF147A',
+    marginBottom: 8,
+  },
+  pickupPicker: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  pickupOption: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  pickupOptionActive: {
+    backgroundColor: '#FF147A',
+  },
+  pickupOptionText: {
+    fontSize: 12,
+    color: '#666',
+  },
+  pickupOptionTextActive: {
+    color: '#fff',
+  },
+  finalTotalGradient: {
+    borderRadius: 12,
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
   },
   finalTotalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 16,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
+    alignItems: 'center',
   },
   finalTotalLabel: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#2C2C2C',
   },
   finalTotalPrice: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#D2691E',
+    color: '#2C2C2C',
   },
   payButton: {
-    backgroundColor: '#D2691E',
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
     marginTop: 16,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  payGradient: {
+    paddingVertical: 16,
+    alignItems: 'center',
   },
   payButtonText: {
     color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '90%',
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#FF147A',
+  },
+  cardPreview: {
+    backgroundColor: '#2C2C2C',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+  },
+  cardPreviewNumber: {
+    fontSize: 18,
+    color: '#fff',
+    letterSpacing: 2,
+    marginBottom: 12,
+  },
+  cardPreviewRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  cardPreviewExpiry: {
+    fontSize: 14,
+    color: '#ccc',
+  },
+  modalInput: {
+    width: '100%',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 16,
+    marginBottom: 12,
+  },
+  modalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  modalHalfInput: {
+    width: '48%',
+  },
+  modalSaveBtn: {
+    borderRadius: 10,
+    overflow: 'hidden',
+    marginTop: 12,
+  },
+  modalSaveGradient: {
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  modalSaveBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  modalSecureText: {
+    fontSize: 12,
+    color: '#999',
+    textAlign: 'center',
+    marginTop: 16,
   },
 });

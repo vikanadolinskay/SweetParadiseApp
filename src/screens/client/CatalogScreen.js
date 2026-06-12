@@ -13,11 +13,14 @@ import {
   Modal,
   Dimensions,
 } from 'react-native';
-import { getProducts } from '../../services/database';
+import { LinearGradient } from 'expo-linear-gradient';
+import { getProducts, addToCart } from '../../services/database';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import GradientToast from '../../components/GradientToast';
 
 const { width } = Dimensions.get('window');
-const CARD_WIDTH = (width - 48) / 2; // 2 колонки с отступами
+const CARD_WIDTH = (width - 48) / 2;
 
 // Кэш для товаров
 let productsCache = null;
@@ -39,11 +42,12 @@ const clearCache = () => {
   lastFetch = 0;
 };
 
-// Функция для получения первого предложения из описания
+// Функция для получения первого предложения из описания (без точки в конце)
 const getFirstSentence = (description) => {
   if (!description) return '';
   const firstSentence = description.split(/[.!?]/)[0];
-  return firstSentence + '.';
+  // Удаляем лишние пробелы в конце и не добавляем точку
+  return firstSentence.trim();
 };
 
 export default function CatalogScreen({ navigation }) {
@@ -55,6 +59,9 @@ export default function CatalogScreen({ navigation }) {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [sortOrder, setSortOrder] = useState('default');
   const [showSortMenu, setShowSortMenu] = useState(false);
+  const [userId, setUserId] = useState(null);
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
 
   const categories = [
     { id: 'all', title: 'Все' },
@@ -71,6 +78,14 @@ export default function CatalogScreen({ navigation }) {
   ];
 
   useEffect(() => {
+    const getUserId = async () => {
+      const userStr = await AsyncStorage.getItem('user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        setUserId(user.user_id);
+      }
+    };
+    getUserId();
     loadProducts();
   }, []);
 
@@ -121,8 +136,22 @@ export default function CatalogScreen({ navigation }) {
     setRefreshing(false);
   }, []);
 
-  const handleAddToCart = (product) => {
-    alert(`🍰 ${product.name} добавлен в корзину!`);
+  const handleAddToCart = async (product) => {
+    if (!userId) {
+      setToastMessage('Пожалуйста, войдите в аккаунт');
+      setToastVisible(true);
+      setTimeout(() => navigation.navigate('Login'), 1500);
+      return;
+    }
+    
+    try {
+      await addToCart(userId, product.product_id, 1, null);
+      setToastMessage(`${product.name} добавлен в корзину`);
+      setToastVisible(true);
+    } catch (error) {
+      setToastMessage('Ошибка при добавлении в корзину');
+      setToastVisible(true);
+    }
   };
 
   const renderProduct = ({ item }) => {
@@ -137,27 +166,32 @@ export default function CatalogScreen({ navigation }) {
       >
         <Image source={imageSource} style={styles.image} />
         <View style={styles.cardContent}>
-          {/* Название по центру */}
           <Text style={styles.name} numberOfLines={2}>{item.name}</Text>
           
-          {/* Первое предложение описания */}
           {shortDescription && (
             <Text style={styles.description} numberOfLines={2}>
               {shortDescription}
             </Text>
           )}
           
-          {/* Калории - по правому краю */}
-          {item.calories && item.calories > 0 && (
-            <Text style={styles.calories}>{item.calories} ккал</Text>
-          )}
+          <View style={styles.caloriesRow}>
+            {item.calories && item.calories > 0 && (
+              <Text style={styles.calories}>{item.calories} ккал</Text>
+            )}
+          </View>
           
-          {/* Цена по центру, кнопка + справа */}
           <View style={styles.bottomRow}>
             <Text style={styles.price}>{item.price} ₽</Text>
-            <TouchableOpacity style={styles.addButton} onPress={() => handleAddToCart(item)}>
-              <Text style={styles.addButtonText}>+</Text>
-            </TouchableOpacity>
+            <LinearGradient
+              colors={['#FFBCD9', '#FFCBBB']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.addButtonGradient}
+            >
+              <TouchableOpacity style={styles.addButton} onPress={() => handleAddToCart(item)}>
+                <Text style={styles.addButtonText}>+</Text>
+              </TouchableOpacity>
+            </LinearGradient>
           </View>
         </View>
       </TouchableOpacity>
@@ -191,7 +225,12 @@ export default function CatalogScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      {/* Розовый верх с поиском */}
+      <GradientToast 
+        visible={toastVisible} 
+        message={toastMessage} 
+        onHide={() => setToastVisible(false)} 
+      />
+
       <View style={styles.header}>
         <View style={styles.searchContainer}>
           <Ionicons name="search" size={20} color="#999" style={styles.searchIcon} />
@@ -208,7 +247,6 @@ export default function CatalogScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      {/* Категории */}
       <FlatList
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -218,7 +256,6 @@ export default function CatalogScreen({ navigation }) {
         contentContainerStyle={styles.categoriesList}
       />
 
-      {/* Список товаров - СЕТКОЙ 2 КОЛОНКИ */}
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.product_id?.toString() || item.id?.toString()}
@@ -232,12 +269,11 @@ export default function CatalogScreen({ navigation }) {
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>😔 Ничего не найдено</Text>
+            <Text style={styles.emptyText}>Ничего не найдено</Text>
           </View>
         }
       />
 
-      {/* Модальное окно сортировки */}
       <Modal
         animationType="fade"
         transparent={true}
@@ -319,12 +355,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   categoriesList: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingVertical: 12,
   },
   categoryChip: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
     borderRadius: 20,
     backgroundColor: '#F0F0F0',
     marginRight: 8,
@@ -333,9 +369,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF69B4',
   },
   categoryText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#666',
     fontWeight: '500',
+    textAlign: 'center',
   },
   categoryTextActive: {
     color: '#FFFFFF',
@@ -365,44 +402,48 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   name: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
     color: '#2C2C2C',
     marginBottom: 6,
     textAlign: 'center',
+    flexWrap: 'wrap',
   },
   description: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#666',
-    lineHeight: 16,
+    lineHeight: 15,
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  caloriesRow: {
+    alignItems: 'flex-end',
     marginBottom: 8,
-    textAlign: 'left',
   },
   calories: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#999',
     textAlign: 'right',
-    marginBottom: 8,
   },
   bottomRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 4,
-    position: 'relative',
   },
   price: {
     fontSize: 16,
     fontWeight: '700',
     color: '#2C2C2C',
   },
+  addButtonGradient: {
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
   addButton: {
-    position: 'absolute',
-    right: 0,
     width: 32,
     height: 32,
-    borderRadius: 16,
-    backgroundColor: '#FF69B4',
+    backgroundColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',
   },

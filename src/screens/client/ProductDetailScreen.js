@@ -27,7 +27,7 @@ export default function ProductDetailScreen({ route, navigation }) {
 
   const loadProduct = async () => {
     const data = await getProductById(productId);
-    console.log('Product data:', data); // Для отладки - посмотрите в консоли
+    console.log('Product data:', data);
     setProduct(data);
     setLoading(false);
   };
@@ -71,11 +71,9 @@ export default function ProductDetailScreen({ route, navigation }) {
     ? product.price * (100 - product.discount) / 100
     : product.price;
     
-  // Используем image_source из базы данных (это require изображения)
-  // Если image_source нет, пробуем image_url, если и его нет - заглушка
   let imageSource;
   if (product.image_source) {
-    imageSource = product.image_source; // Это уже require из database.js
+    imageSource = product.image_source;
   } else if (product.image_url) {
     imageSource = { uri: product.image_url };
   } else {
@@ -83,7 +81,7 @@ export default function ProductDetailScreen({ route, navigation }) {
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <Image 
         source={imageSource} 
         style={styles.image} 
@@ -107,7 +105,6 @@ export default function ProductDetailScreen({ route, navigation }) {
           {product.description || 'Описание отсутствует'}
         </Text>
         
-        {/* Дополнительные характеристики */}
         {product.filling && (
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Начинка:</Text>
@@ -153,22 +150,90 @@ export default function ProductDetailScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  emptyText: { fontSize: 16, color: '#999' },
-  image: { width: '100%', height: 320, resizeMode: 'cover' },
-  content: { padding: 16 },
-  name: { fontSize: 24, fontWeight: 'bold', color: '#333', marginBottom: 8 },
-  discountRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-  oldPrice: { fontSize: 16, color: '#999', textDecorationLine: 'line-through', marginRight: 8 },
-  discountBadge: { backgroundColor: '#FFE4E1', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 2 },
-  discountText: { color: '#FF69B4', fontWeight: 'bold' },
-  price: { fontSize: 28, fontWeight: 'bold', color: '#2C2C2C', marginBottom: 16 },
-  description: { fontSize: 14, color: '#666', lineHeight: 20, marginBottom: 16 },
-  infoRow: { flexDirection: 'row', marginBottom: 8 },
-  infoLabel: { fontSize: 14, fontWeight: 'bold', color: '#555', width: 100 },
-  infoValue: { fontSize: 14, color: '#666', flex: 1 },
-  buttons: { flexDirection: 'row', gap: 12, marginTop: 16 },
+  container: { 
+    flex: 1, 
+    backgroundColor: '#fff' 
+  },
+  center: { 
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
+  emptyText: { 
+    fontSize: 16, 
+    color: '#999' 
+  },
+  image: { 
+    width: '100%', 
+    height: 320, 
+    resizeMode: 'cover' 
+  },
+  content: { 
+    padding: 16 
+  },
+  name: { 
+    fontSize: 24, 
+    fontWeight: 'bold', 
+    color: '#333', 
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  discountRow: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    marginBottom: 4 
+  },
+  oldPrice: { 
+    fontSize: 16, 
+    color: '#999', 
+    textDecorationLine: 'line-through', 
+    marginRight: 8 
+  },
+  discountBadge: { 
+    backgroundColor: '#FFE4E1', 
+    borderRadius: 12, 
+    paddingHorizontal: 8, 
+    paddingVertical: 2 
+  },
+  discountText: { 
+    color: '#FF69B4', 
+    fontWeight: 'bold' 
+  },
+  price: { 
+    fontSize: 28, 
+    fontWeight: 'bold', 
+    color: '#2C2C2C', 
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  description: { 
+    fontSize: 15, 
+    color: '#444', 
+    lineHeight: 22, 
+    marginBottom: 20,
+    textAlign: 'left',
+  },
+  infoRow: { 
+    flexDirection: 'row', 
+    marginBottom: 8 
+  },
+  infoLabel: { 
+    fontSize: 14, 
+    fontWeight: 'bold', 
+    color: '#555', 
+    width: 100 
+  },
+  infoValue: { 
+    fontSize: 14, 
+    color: '#666', 
+    flex: 1 
+  },
+  buttons: { 
+    flexDirection: 'row', 
+    gap: 12, 
+    marginTop: 16 
+  },
   cartButton: { 
     flex: 1, 
     backgroundColor: '#FF69B4', 
@@ -176,7 +241,11 @@ const styles = StyleSheet.create({
     borderRadius: 8, 
     alignItems: 'center' 
   },
-  buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+  buttonText: { 
+    color: '#fff', 
+    fontWeight: 'bold', 
+    fontSize: 16 
+  },
   customizeGradientBorder: {
     flex: 1,
     borderRadius: 8,
