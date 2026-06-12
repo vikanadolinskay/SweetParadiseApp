@@ -13,7 +13,7 @@ import {
   Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { MaskedView } from '@react-native-masked-view/masked-view';
+import MaskedView from '@react-native-masked-view/masked-view';
 import { Ionicons } from '@expo/vector-icons';
 import { createUser, checkEmailExists } from '../../services/database';
 
