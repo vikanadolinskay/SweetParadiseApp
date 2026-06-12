@@ -39,10 +39,9 @@ const ClientTabs = () => {
           else if (route.name === 'Профиль') iconName = 'person';
           return <Icon name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#D2691E',
+        tabBarActiveTintColor: '#FF69B4',
         tabBarInactiveTintColor: 'gray',
-        headerStyle: { backgroundColor: '#D2691E' },
-        headerTintColor: '#fff',
+        headerShown: false, // Скрываем заголовок для всех экранов в табах
       })}
     >
       <Tab.Screen name="Каталог" component={CatalogScreen} />
@@ -77,32 +76,32 @@ export default function AppNavigator() {
         <Stack.Screen 
           name="ProductDetail" 
           component={ProductDetailScreen} 
-          options={{ title: 'Детали товара' }} 
+          options={{ title: 'Детали товара', headerStyle: { backgroundColor: '#FFBCD9' }, headerTintColor: '#fff' }} 
         />
         <Stack.Screen 
           name="Customize1" 
           component={CustomizeScreen1} 
-          options={{ title: 'Выбор формы' }} 
+          options={{ title: 'Выбор формы', headerStyle: { backgroundColor: '#FFBCD9' }, headerTintColor: '#fff' }} 
         />
         <Stack.Screen 
           name="Customize2" 
           component={CustomizeScreen2} 
-          options={{ title: 'Выбор размера' }} 
+          options={{ title: 'Выбор размера', headerStyle: { backgroundColor: '#FFBCD9' }, headerTintColor: '#fff' }} 
         />
         <Stack.Screen 
           name="Customize3" 
           component={CustomizeScreen3} 
-          options={{ title: 'Выбор начинки' }} 
+          options={{ title: 'Выбор начинки', headerStyle: { backgroundColor: '#FFBCD9' }, headerTintColor: '#fff' }} 
         />
         <Stack.Screen 
           name="Customize4" 
           component={CustomizeScreen4} 
-          options={{ title: 'Выбор декора' }} 
+          options={{ title: 'Выбор декора', headerStyle: { backgroundColor: '#FFBCD9' }, headerTintColor: '#fff' }} 
         />
         <Stack.Screen 
           name="Checkout" 
           component={CheckoutScreen} 
-          options={{ title: 'Оформление заказа' }} 
+          options={{ title: 'Оформление заказа', headerStyle: { backgroundColor: '#FFBCD9' }, headerTintColor: '#fff' }} 
         />
       </Stack.Navigator>
     </NavigationContainer>

@@ -10,11 +10,14 @@ import {
   ActivityIndicator,
   TextInput,
   RefreshControl,
-  ScrollView,
   Modal,
+  Dimensions,
 } from 'react-native';
 import { getProducts } from '../../services/database';
 import { Ionicons } from '@expo/vector-icons';
+
+const { width } = Dimensions.get('window');
+const CARD_WIDTH = (width - 48) / 2; // 2 колонки с отступами
 
 // Кэш для товаров
 let productsCache = null;
@@ -34,6 +37,13 @@ const getCachedProducts = async () => {
 const clearCache = () => {
   productsCache = null;
   lastFetch = 0;
+};
+
+// Функция для получения первого предложения из описания
+const getFirstSentence = (description) => {
+  if (!description) return '';
+  const firstSentence = description.split(/[.!?]/)[0];
+  return firstSentence + '.';
 };
 
 export default function CatalogScreen({ navigation }) {
@@ -111,20 +121,13 @@ export default function CatalogScreen({ navigation }) {
     setRefreshing(false);
   }, []);
 
-  const getFinalPrice = (product) => {
-    if (product.discount && product.discount > 0) {
-      return product.price * (100 - product.discount) / 100;
-    }
-    return product.price;
-  };
-
   const handleAddToCart = (product) => {
     alert(`🍰 ${product.name} добавлен в корзину!`);
   };
 
   const renderProduct = ({ item }) => {
-    const finalPrice = getFinalPrice(item);
     const imageSource = item.image_source || { uri: 'https://via.placeholder.com/150?text=No+Image' };
+    const shortDescription = getFirstSentence(item.description);
 
     return (
       <TouchableOpacity
@@ -134,30 +137,22 @@ export default function CatalogScreen({ navigation }) {
       >
         <Image source={imageSource} style={styles.image} />
         <View style={styles.cardContent}>
-          <Text style={styles.name}>{item.name}</Text>
+          {/* Название по центру */}
+          <Text style={styles.name} numberOfLines={2}>{item.name}</Text>
           
-          {/* Начинка и Декор - по левому краю */}
-          <View style={styles.detailsLeft}>
-            {item.filling && (
-              <Text style={styles.detailText}>
-                <Text style={styles.detailLabel}>Начинка: </Text>
-                {item.filling}
-              </Text>
-            )}
-            {item.decor && (
-              <Text style={styles.detailText}>
-                <Text style={styles.detailLabel}>Декор: </Text>
-                {item.decor}
-              </Text>
-            )}
-          </View>
+          {/* Первое предложение описания */}
+          {shortDescription && (
+            <Text style={styles.description} numberOfLines={2}>
+              {shortDescription}
+            </Text>
+          )}
           
           {/* Калории - по правому краю */}
-          {item.calories && (
+          {item.calories && item.calories > 0 && (
             <Text style={styles.calories}>{item.calories} ккал</Text>
           )}
           
-          {/* Цена - посередине, кнопка + справа */}
+          {/* Цена по центру, кнопка + справа */}
           <View style={styles.bottomRow}>
             <Text style={styles.price}>{item.price} ₽</Text>
             <TouchableOpacity style={styles.addButton} onPress={() => handleAddToCart(item)}>
@@ -223,11 +218,13 @@ export default function CatalogScreen({ navigation }) {
         contentContainerStyle={styles.categoriesList}
       />
 
-      {/* Список товаров */}
+      {/* Список товаров - СЕТКОЙ 2 КОЛОНКИ */}
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.product_id?.toString() || item.id?.toString()}
         renderItem={renderProduct}
+        numColumns={2}
+        columnWrapperStyle={styles.columnWrapper}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -291,14 +288,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingTop: 48,
-    paddingBottom: 16,
+    paddingBottom: 12,
     backgroundColor: '#FFBCD9',
   },
   searchContainer: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
     borderRadius: 12,
     paddingHorizontal: 12,
     height: 44,
@@ -347,8 +344,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 20,
   },
+  columnWrapper: {
+    justifyContent: 'space-between',
+  },
   card: {
-    flexDirection: 'row',
+    width: CARD_WIDTH,
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     marginBottom: 16,
@@ -357,33 +357,26 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   image: {
-    width: 120,
-    height: 120,
+    width: '100%',
+    height: 150,
     backgroundColor: '#F8F8F8',
   },
   cardContent: {
-    flex: 1,
     padding: 12,
-    position: 'relative',
   },
   name: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
     color: '#2C2C2C',
-    marginBottom: 8,
+    marginBottom: 6,
     textAlign: 'center',
   },
-  detailsLeft: {
-    marginBottom: 4,
-  },
-  detailText: {
+  description: {
     fontSize: 12,
-    color: '#555',
-    marginBottom: 2,
-  },
-  detailLabel: {
-    fontWeight: '600',
-    color: '#333',
+    color: '#666',
+    lineHeight: 16,
+    marginBottom: 8,
+    textAlign: 'left',
   },
   calories: {
     fontSize: 12,
@@ -393,9 +386,10 @@ const styles = StyleSheet.create({
   },
   bottomRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
     marginTop: 4,
+    position: 'relative',
   },
   price: {
     fontSize: 16,
@@ -403,16 +397,18 @@ const styles = StyleSheet.create({
     color: '#2C2C2C',
   },
   addButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    position: 'absolute',
+    right: 0,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: '#FF69B4',
     justifyContent: 'center',
     alignItems: 'center',
   },
   addButtonText: {
     color: '#FFFFFF',
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
   },
   center: {

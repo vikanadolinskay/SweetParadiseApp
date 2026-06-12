@@ -3,6 +3,7 @@ import {
   View, Text, Image, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Alert,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { getProductById, addToCart } from '../../services/database';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -26,6 +27,7 @@ export default function ProductDetailScreen({ route, navigation }) {
 
   const loadProduct = async () => {
     const data = await getProductById(productId);
+    console.log('Product data:', data); // Для отладки - посмотрите в консоли
     setProduct(data);
     setLoading(false);
   };
@@ -52,7 +54,7 @@ export default function ProductDetailScreen({ route, navigation }) {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#D2691E" />
+        <ActivityIndicator size="large" color="#FF69B4" />
       </View>
     );
   }
@@ -68,11 +70,22 @@ export default function ProductDetailScreen({ route, navigation }) {
   const finalPrice = product.discount
     ? product.price * (100 - product.discount) / 100
     : product.price;
+    
+  // Используем image_source из базы данных (это require изображения)
+  // Если image_source нет, пробуем image_url, если и его нет - заглушка
+  let imageSource;
+  if (product.image_source) {
+    imageSource = product.image_source; // Это уже require из database.js
+  } else if (product.image_url) {
+    imageSource = { uri: product.image_url };
+  } else {
+    imageSource = { uri: 'https://via.placeholder.com/400?text=No+Image' };
+  }
 
   return (
     <ScrollView style={styles.container}>
       <Image 
-        source={{ uri: product.image_url || 'https://via.placeholder.com/400?text=Cake' }} 
+        source={imageSource} 
         style={styles.image} 
       />
       
@@ -122,9 +135,16 @@ export default function ProductDetailScreen({ route, navigation }) {
           </TouchableOpacity>
           
           {product.is_customizable === 1 && (
-            <TouchableOpacity style={styles.customizeButton} onPress={handleCustomize}>
-              <Text style={styles.customizeButtonText}>Настроить</Text>
-            </TouchableOpacity>
+            <LinearGradient
+              colors={['#FFBCD9', '#FFCBBB']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.customizeGradientBorder}
+            >
+              <TouchableOpacity style={styles.customizeButton} onPress={handleCustomize}>
+                <Text style={styles.customizeButtonText}>Настроить</Text>
+              </TouchableOpacity>
+            </LinearGradient>
           )}
         </View>
       </View>
@@ -142,15 +162,35 @@ const styles = StyleSheet.create({
   discountRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
   oldPrice: { fontSize: 16, color: '#999', textDecorationLine: 'line-through', marginRight: 8 },
   discountBadge: { backgroundColor: '#FFE4E1', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 2 },
-  discountText: { color: '#D2691E', fontWeight: 'bold' },
-  price: { fontSize: 28, fontWeight: 'bold', color: '#D2691E', marginBottom: 16 },
+  discountText: { color: '#FF69B4', fontWeight: 'bold' },
+  price: { fontSize: 28, fontWeight: 'bold', color: '#2C2C2C', marginBottom: 16 },
   description: { fontSize: 14, color: '#666', lineHeight: 20, marginBottom: 16 },
   infoRow: { flexDirection: 'row', marginBottom: 8 },
   infoLabel: { fontSize: 14, fontWeight: 'bold', color: '#555', width: 100 },
   infoValue: { fontSize: 14, color: '#666', flex: 1 },
   buttons: { flexDirection: 'row', gap: 12, marginTop: 16 },
-  cartButton: { flex: 1, backgroundColor: '#D2691E', padding: 14, borderRadius: 8, alignItems: 'center' },
-  customizeButton: { flex: 1, backgroundColor: '#fff', padding: 14, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#D2691E' },
+  cartButton: { 
+    flex: 1, 
+    backgroundColor: '#FF69B4', 
+    padding: 14, 
+    borderRadius: 8, 
+    alignItems: 'center' 
+  },
   buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-  customizeButtonText: { color: '#D2691E', fontWeight: 'bold', fontSize: 16 },
+  customizeGradientBorder: {
+    flex: 1,
+    borderRadius: 8,
+    padding: 2,
+  },
+  customizeButton: { 
+    backgroundColor: '#fff',
+    padding: 12,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  customizeButtonText: { 
+    color: '#FF69B4', 
+    fontWeight: 'bold', 
+    fontSize: 16 
+  },
 });
