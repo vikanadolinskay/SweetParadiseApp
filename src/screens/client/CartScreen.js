@@ -33,8 +33,6 @@ export default function CartScreen({ navigation }) {
   const [cardHolder, setCardHolder] = useState('');
   const [savedCard, setSavedCard] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('cash');
-  const [pickupDate, setPickupDate] = useState(new Date());
-  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const pickupAddresses = [
     'г. Таганрог, ул. Петровская 711',
@@ -92,22 +90,26 @@ export default function CartScreen({ navigation }) {
     return parts.length > 0 ? parts.join(' • ') : null;
   };
 
-  const handleRemove = (cartItemId) => {
-    Alert.alert('Удаление', 'Удалить товар из корзины?', [
-      { text: 'Отмена', style: 'cancel' },
-      {
-        text: 'Удалить',
-        onPress: async () => {
-          await removeFromCart(cartItemId);
-          loadCart();
+  const handleRemove = (cartItemId, productName) => {
+    Alert.alert(
+      'Удаление',
+      'Удалить товар из корзины?',
+      [
+        { text: 'Отмена', style: 'cancel' },
+        {
+          text: 'Удалить',
+          onPress: async () => {
+            await removeFromCart(cartItemId);
+            loadCart();
+          },
         },
-      },
-    ]);
+      ],
+      { cancelable: true }
+    );
   };
 
   const handleUpdateQuantity = async (cartItemId, productId, newQuantity) => {
     if (newQuantity < 1) {
-      handleRemove(cartItemId);
       return;
     }
     await updateCartQuantity(cartItemId, newQuantity);
@@ -143,12 +145,25 @@ export default function CartScreen({ navigation }) {
     }
   };
 
-  const formatDate = (date) => {
-    return date.toLocaleDateString('ru-RU', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
+  const formatCardNumber = (text) => {
+    let formatted = text.replace(/\s/g, '');
+    if (formatted.length > 16) formatted = formatted.slice(0, 16);
+    formatted = formatted.replace(/(.{4})/g, '$1 ').trim();
+    return formatted;
+  };
+
+  const formatExpiry = (text) => {
+    let formatted = text.replace(/\//g, '');
+    if (formatted.length > 4) formatted = formatted.slice(0, 4);
+    if (formatted.length >= 3) {
+      formatted = formatted.slice(0, 2) + '/' + formatted.slice(2);
+    }
+    return formatted;
+  };
+
+  const formatCvv = (text) => {
+    if (text.length > 3) return text.slice(0, 3);
+    return text;
   };
 
   const handleProceedToCheckout = () => {
@@ -163,7 +178,6 @@ export default function CartScreen({ navigation }) {
       pickupAddress,
       paymentMethod,
       savedCard,
-      pickupDate: formatDate(pickupDate)
     });
   };
 
@@ -177,8 +191,8 @@ export default function CartScreen({ navigation }) {
 
     return (
       <View style={styles.cartItem}>
-        <TouchableOpacity onPress={() => handleRemove(item.cart_item_id)} style={styles.removeIcon}>
-          <Ionicons name="close-circle" size={24} color="#FF147A" />
+        <TouchableOpacity onPress={() => handleRemove(item.cart_item_id, item.name)} style={styles.removeIcon}>
+          <Ionicons name="close-circle" size={22} color="#FF147A" />
         </TouchableOpacity>
         <Image source={imageSource} style={styles.itemImage} />
         <View style={styles.itemDetails}>
@@ -222,7 +236,7 @@ export default function CartScreen({ navigation }) {
   if (cart.length === 0) {
     return (
       <View style={styles.center}>
-        <Ionicons name="cart-outline" size={80} color="#ddd" />
+        <Ionicons name="cart-outline" size={70} color="#ddd" />
         <Text style={styles.emptyText}>Корзина пуста</Text>
         <TouchableOpacity style={styles.shopBtn} onPress={() => navigation.navigate('Каталог')}>
           <Text style={styles.shopBtnText}>Перейти в каталог</Text>
@@ -251,24 +265,47 @@ export default function CartScreen({ navigation }) {
         {/* Блок оплаты */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>ОПЛАТА</Text>
-          <View style={styles.paymentCard}>
-            {savedCard ? (
-              <>
-                <View>
-                  <Text style={styles.cardText}>Visa *{savedCard.number}</Text>
-                  <Text style={styles.cardHolderText}>{savedCard.holder}</Text>
-                </View>
-                <TouchableOpacity onPress={() => setShowPaymentModal(true)}>
-                  <Text style={styles.changeText}>Изменить</Text>
+          
+          <TouchableOpacity
+            style={[styles.paymentOption, paymentMethod === 'cash' && styles.paymentOptionActive]}
+            onPress={() => setPaymentMethod('cash')}
+          >
+            <View style={styles.radioCircle}>
+              {paymentMethod === 'cash' && <View style={styles.radioSelected} />}
+            </View>
+            <Text style={styles.paymentOptionText}>Наличными при получении</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.paymentOption, paymentMethod === 'card' && styles.paymentOptionActive]}
+            onPress={() => setPaymentMethod('card')}
+          >
+            <View style={styles.radioCircle}>
+              {paymentMethod === 'card' && <View style={styles.radioSelected} />}
+            </View>
+            <Text style={styles.paymentOptionText}>Банковской картой онлайн</Text>
+          </TouchableOpacity>
+
+          {paymentMethod === 'card' && (
+            <View style={styles.paymentCard}>
+              {savedCard ? (
+                <>
+                  <View>
+                    <Text style={styles.cardText}>Visa *{savedCard.number}</Text>
+                    <Text style={styles.cardHolderText}>{savedCard.holder}</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => setShowPaymentModal(true)}>
+                    <Text style={styles.changeText}>Изменить</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <TouchableOpacity style={styles.addCardBtn} onPress={() => setShowPaymentModal(true)}>
+                  <Ionicons name="card-outline" size={18} color="#FF147A" />
+                  <Text style={styles.addCardText}>Добавить карту</Text>
                 </TouchableOpacity>
-              </>
-            ) : (
-              <TouchableOpacity style={styles.addCardBtn} onPress={() => setShowPaymentModal(true)}>
-                <Ionicons name="card-outline" size={20} color="#FF147A" />
-                <Text style={styles.addCardText}>+ Добавить карту</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+              )}
+            </View>
+          )}
         </View>
 
         {/* Промокод */}
@@ -289,7 +326,7 @@ export default function CartScreen({ navigation }) {
               </TouchableOpacity>
             ) : (
               <View style={styles.appliedBadge}>
-                <Text style={styles.appliedText}>✓ Применён</Text>
+                <Text style={styles.appliedText}>Применён</Text>
               </View>
             )}
           </View>
@@ -325,38 +362,26 @@ export default function CartScreen({ navigation }) {
                   onPress={() => setPickupAddress(addr)}
                 >
                   <Text style={[styles.pickupOptionText, pickupAddress === addr && styles.pickupOptionTextActive]}>
-                    {addr.length > 30 ? addr.substring(0, 27) + '...' : addr}
+                    {addr.length > 35 ? addr.substring(0, 32) + '...' : addr}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
           </View>
 
-          {/* Итого с фоном */}
-          <LinearGradient
-            colors={['#FFCBBB', '#FFCBBB']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.finalTotalGradient}
-          >
+          {/* Итого с полупрозрачным фоном */}
+          <View style={styles.finalTotalGradient}>
             <View style={styles.finalTotalRow}>
               <Text style={styles.finalTotalLabel}>Итого:</Text>
               <Text style={styles.finalTotalPrice}>{Math.round(total)} ₽</Text>
             </View>
-          </LinearGradient>
+          </View>
 
           <TouchableOpacity 
             style={styles.payButton}
             onPress={handleProceedToCheckout}
           >
-            <LinearGradient
-              colors={['#FF147A', '#FF69B4']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.payGradient}
-            >
-              <Text style={styles.payButtonText}>Оформить заказ</Text>
-            </LinearGradient>
+            <Text style={styles.payButtonText}>Оформить заказ</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -373,7 +398,7 @@ export default function CartScreen({ navigation }) {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Данные карты</Text>
               <TouchableOpacity onPress={() => setShowPaymentModal(false)}>
-                <Ionicons name="close" size={24} color="#999" />
+                <Ionicons name="close" size={22} color="#999" />
               </TouchableOpacity>
             </View>
 
@@ -383,7 +408,7 @@ export default function CartScreen({ navigation }) {
               </Text>
               <View style={styles.cardPreviewRow}>
                 <Text style={styles.cardPreviewExpiry}>{cardExpiry || 'MM/YY'}</Text>
-                <Ionicons name="card" size={32} color="#fff" />
+                <Ionicons name="card" size={28} color="#fff" />
               </View>
             </View>
 
@@ -394,17 +419,12 @@ export default function CartScreen({ navigation }) {
               keyboardType="numeric"
               maxLength={19}
               value={cardNumber}
-              onChangeText={(text) => {
-                let formatted = text.replace(/\s/g, '');
-                if (formatted.length > 16) formatted = formatted.slice(0, 16);
-                formatted = formatted.replace(/(.{4})/g, '$1 ').trim();
-                setCardNumber(formatted);
-              }}
+              onChangeText={(text) => setCardNumber(formatCardNumber(text))}
             />
             
             <TextInput
               style={styles.modalInput}
-              placeholder="Имя держателя (как на карте)"
+              placeholder="Имя держателя"
               placeholderTextColor="#999"
               value={cardHolder}
               onChangeText={setCardHolder}
@@ -417,7 +437,7 @@ export default function CartScreen({ navigation }) {
                 placeholder="MM/YY"
                 placeholderTextColor="#999"
                 value={cardExpiry}
-                onChangeText={setCardExpiry}
+                onChangeText={(text) => setCardExpiry(formatExpiry(text))}
                 maxLength={5}
               />
               <TextInput
@@ -428,23 +448,16 @@ export default function CartScreen({ navigation }) {
                 maxLength={3}
                 secureTextEntry
                 value={cardCvv}
-                onChangeText={setCardCvv}
+                onChangeText={(text) => setCardCvv(formatCvv(text))}
               />
             </View>
 
             <TouchableOpacity style={styles.modalSaveBtn} onPress={handleSaveCard}>
-              <LinearGradient
-                colors={['#FF147A', '#FF69B4']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.modalSaveGradient}
-              >
-                <Text style={styles.modalSaveBtnText}>Сохранить карту</Text>
-              </LinearGradient>
+              <Text style={styles.modalSaveBtnText}>Сохранить карту</Text>
             </TouchableOpacity>
 
             <Text style={styles.modalSecureText}>
-              <Ionicons name="shield-checkmark" size={14} color="#4CAF50" /> 
+              <Ionicons name="shield-checkmark" size={12} color="#4CAF50" /> 
               Данные защищены
             </Text>
           </View>
@@ -460,15 +473,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   header: {
-    backgroundColor: '#FFBCD9',
+    backgroundColor: '#FFFFFF',
     paddingTop: 48,
     paddingBottom: 16,
     alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#2C2C2C',
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#FF147A',
+    fontFamily: 'Poppins-SemiBold',
   },
   center: {
     flex: 1,
@@ -477,21 +493,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#999',
     marginTop: 16,
     marginBottom: 20,
+    fontFamily: 'Poppins-Regular',
   },
   shopBtn: {
     backgroundColor: '#FF147A',
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderRadius: 25,
   },
   shopBtnText: {
     color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
+    fontWeight: '600',
+    fontSize: 14,
+    fontFamily: 'Poppins-SemiBold',
   },
   cartList: {
     padding: 12,
@@ -503,14 +521,15 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#f0f0f0',
+    borderColor: '#F0F0F0',
   },
   sectionTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
+    fontSize: 12,
+    fontWeight: '600',
     color: '#FF147A',
     marginBottom: 12,
     letterSpacing: 1,
+    fontFamily: 'Poppins-SemiBold',
   },
   cartItem: {
     flexDirection: 'row',
@@ -519,85 +538,120 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#f0f0f0',
+    borderColor: '#F0F0F0',
     position: 'relative',
   },
   removeIcon: {
     position: 'absolute',
     left: -8,
     top: '50%',
-    marginTop: -12,
+    marginTop: -11,
     zIndex: 10,
     backgroundColor: '#fff',
     borderRadius: 12,
   },
   itemImage: {
-    width: 60,
-    height: 60,
+    width: 55,
+    height: 55,
     borderRadius: 8,
     backgroundColor: '#f0f0f0',
-    marginLeft: 12,
+    marginLeft: 10,
   },
   itemDetails: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: 10,
   },
   itemName: {
-    fontSize: 14,
-    fontWeight: 'bold',
+    fontSize: 13,
+    fontWeight: '600',
     color: '#2C2C2C',
+    fontFamily: 'Poppins-SemiBold',
   },
   itemCustom: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#888',
     marginTop: 2,
+    fontFamily: 'Poppins-Regular',
   },
   itemBottomRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 6,
   },
   itemPrice: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
     color: '#2C2C2C',
+    fontFamily: 'Poppins-Medium',
   },
   quantityContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   qtyBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: '#f0f0f0',
     alignItems: 'center',
     justifyContent: 'center',
   },
   qtyBtnText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#2C2C2C',
   },
   quantityText: {
-    marginHorizontal: 12,
-    fontSize: 14,
+    marginHorizontal: 10,
+    fontSize: 13,
     fontWeight: '500',
     color: '#2C2C2C',
+  },
+  paymentOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  paymentOptionActive: {
+    backgroundColor: 'transparent',
+  },
+  radioCircle: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: '#FF147A',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  radioSelected: {
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    backgroundColor: '#FF147A',
+  },
+  paymentOptionText: {
+    fontSize: 13,
+    color: '#2C2C2C',
+    fontFamily: 'Poppins-Regular',
   },
   paymentCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: 10,
   },
   cardText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
     color: '#2C2C2C',
   },
   cardHolderText: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#999',
     marginTop: 2,
   },
@@ -608,10 +662,10 @@ const styles = StyleSheet.create({
   addCardBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 8,
   },
   addCardText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#FF147A',
     fontWeight: '500',
     marginLeft: 8,
@@ -626,105 +680,108 @@ const styles = StyleSheet.create({
     borderColor: '#ddd',
     borderRadius: 8,
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
+    paddingVertical: 8,
+    fontSize: 13,
     marginRight: 8,
   },
   applyBtn: {
     backgroundColor: '#FF147A',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 8,
   },
   applyBtnText: {
     color: '#fff',
-    fontWeight: 'bold',
+    fontWeight: '600',
     fontSize: 12,
   },
   appliedBadge: {
     backgroundColor: '#4CAF50',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     borderRadius: 8,
   },
   appliedText: {
     color: '#fff',
-    fontWeight: 'bold',
+    fontWeight: '600',
     fontSize: 12,
   },
   discountText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#4CAF50',
     marginTop: 8,
   },
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 10,
     paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
   totalLabel: {
-    fontSize: 14,
-    fontWeight: 'bold',
+    fontSize: 12,
+    fontWeight: '600',
     color: '#FF147A',
     letterSpacing: 1,
+    fontFamily: 'Poppins-SemiBold',
   },
   totalItemRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   totalItemName: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#2C2C2C',
     flex: 2,
+    fontFamily: 'Poppins-Regular',
   },
   totalItemPrice: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#2C2C2C',
     fontWeight: '500',
   },
   pickupRow: {
-    marginTop: 16,
-    paddingTop: 12,
+    marginTop: 12,
+    paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: '#eee',
   },
   pickupLabel: {
-    fontSize: 14,
-    fontWeight: 'bold',
+    fontSize: 12,
+    fontWeight: '600',
     color: '#FF147A',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   pickupPicker: {
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
   pickupOption: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 18,
     backgroundColor: '#f0f0f0',
-    marginRight: 8,
-    marginBottom: 8,
+    marginRight: 6,
+    marginBottom: 6,
   },
   pickupOptionActive: {
     backgroundColor: '#FF147A',
   },
   pickupOptionText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#666',
   },
   pickupOptionTextActive: {
     color: '#fff',
   },
   finalTotalGradient: {
-    borderRadius: 12,
-    marginTop: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    backgroundColor: 'rgba(255, 203, 187, 0.5)',
+    borderRadius: 10,
+    marginTop: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
   },
   finalTotalRow: {
     flexDirection: 'row',
@@ -732,28 +789,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   finalTotalLabel: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: '600',
     color: '#2C2C2C',
+    fontFamily: 'Poppins-SemiBold',
   },
   finalTotalPrice: {
-    fontSize: 22,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '700',
     color: '#2C2C2C',
   },
   payButton: {
     marginTop: 16,
+    backgroundColor: '#FF147A',
+    paddingVertical: 14,
     borderRadius: 12,
-    overflow: 'hidden',
-  },
-  payGradient: {
-    paddingVertical: 16,
     alignItems: 'center',
   },
   payButtonText: {
     color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '600',
+    fontFamily: 'Poppins-SemiBold',
   },
   modalOverlay: {
     flex: 1,
@@ -771,24 +828,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '600',
     color: '#FF147A',
+    fontFamily: 'Poppins-SemiBold',
   },
   cardPreview: {
     backgroundColor: '#2C2C2C',
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
+    padding: 14,
+    marginBottom: 16,
   },
   cardPreviewNumber: {
-    fontSize: 18,
+    fontSize: 14,
     color: '#fff',
-    letterSpacing: 2,
-    marginBottom: 12,
+    letterSpacing: 1,
+    marginBottom: 10,
   },
   cardPreviewRow: {
     flexDirection: 'row',
@@ -796,7 +854,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cardPreviewExpiry: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#ccc',
   },
   modalInput: {
@@ -804,9 +862,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 10,
-    padding: 12,
-    fontSize: 16,
-    marginBottom: 12,
+    padding: 10,
+    fontSize: 14,
+    marginBottom: 10,
   },
   modalRow: {
     flexDirection: 'row',
@@ -816,23 +874,21 @@ const styles = StyleSheet.create({
     width: '48%',
   },
   modalSaveBtn: {
+    backgroundColor: '#FF147A',
+    paddingVertical: 12,
     borderRadius: 10,
-    overflow: 'hidden',
-    marginTop: 12,
-  },
-  modalSaveGradient: {
-    paddingVertical: 14,
     alignItems: 'center',
+    marginTop: 10,
   },
   modalSaveBtnText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: '600',
   },
   modalSecureText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#999',
     textAlign: 'center',
-    marginTop: 16,
+    marginTop: 12,
   },
 });

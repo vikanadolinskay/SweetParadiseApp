@@ -54,7 +54,7 @@ export default function ProductDetailScreen({ route, navigation }) {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#FF69B4" />
+        <ActivityIndicator size="large" color="#FF147A" />
       </View>
     );
   }
@@ -101,6 +101,7 @@ export default function ProductDetailScreen({ route, navigation }) {
         
         <Text style={styles.price}>{Math.round(finalPrice)} ₽</Text>
         
+        {/* ПОЛНОЕ ОПИСАНИЕ - весь текст из БД */}
         <Text style={styles.description}>
           {product.description || 'Описание отсутствует'}
         </Text>
@@ -160,7 +161,7 @@ const styles = StyleSheet.create({
     alignItems: 'center' 
   },
   emptyText: { 
-    fontSize: 16, 
+    fontSize: 14, 
     color: '#999' 
   },
   image: { 
@@ -172,11 +173,12 @@ const styles = StyleSheet.create({
     padding: 16 
   },
   name: { 
-    fontSize: 24, 
+    fontSize: 22, 
     fontWeight: 'bold', 
-    color: '#333', 
+    color: '#2C2C2C', 
     marginBottom: 8,
     textAlign: 'center',
+    fontFamily: 'Poppins-Bold',
   },
   discountRow: { 
     flexDirection: 'row', 
@@ -185,7 +187,7 @@ const styles = StyleSheet.create({
     marginBottom: 4 
   },
   oldPrice: { 
-    fontSize: 16, 
+    fontSize: 14, 
     color: '#999', 
     textDecorationLine: 'line-through', 
     marginRight: 8 
@@ -197,22 +199,25 @@ const styles = StyleSheet.create({
     paddingVertical: 2 
   },
   discountText: { 
-    color: '#FF69B4', 
-    fontWeight: 'bold' 
+    color: '#FF147A', 
+    fontWeight: 'bold',
+    fontSize: 12,
   },
   price: { 
-    fontSize: 28, 
+    fontSize: 24, 
     fontWeight: 'bold', 
     color: '#2C2C2C', 
     marginBottom: 16,
     textAlign: 'center',
+    fontFamily: 'Poppins-Bold',
   },
   description: { 
-    fontSize: 15, 
+    fontSize: 14, 
     color: '#444', 
     lineHeight: 22, 
     marginBottom: 20,
     textAlign: 'left',
+    fontFamily: 'Poppins-Regular',
   },
   infoRow: { 
     flexDirection: 'row', 
@@ -222,12 +227,14 @@ const styles = StyleSheet.create({
     fontSize: 14, 
     fontWeight: 'bold', 
     color: '#555', 
-    width: 100 
+    width: 100,
+    fontFamily: 'Poppins-SemiBold',
   },
   infoValue: { 
     fontSize: 14, 
     color: '#666', 
-    flex: 1 
+    flex: 1,
+    fontFamily: 'Poppins-Regular',
   },
   buttons: { 
     flexDirection: 'row', 
@@ -236,7 +243,7 @@ const styles = StyleSheet.create({
   },
   cartButton: { 
     flex: 1, 
-    backgroundColor: '#FF69B4', 
+    backgroundColor: '#FF147A', 
     padding: 14, 
     borderRadius: 8, 
     alignItems: 'center' 
@@ -244,7 +251,8 @@ const styles = StyleSheet.create({
   buttonText: { 
     color: '#fff', 
     fontWeight: 'bold', 
-    fontSize: 16 
+    fontSize: 14,
+    fontFamily: 'Poppins-SemiBold',
   },
   customizeGradientBorder: {
     flex: 1,
@@ -258,8 +266,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   customizeButtonText: { 
-    color: '#FF69B4', 
+    color: '#FF147A', 
     fontWeight: 'bold', 
-    fontSize: 16 
+    fontSize: 14,
+    fontFamily: 'Poppins-SemiBold',
   },
 });

@@ -17,29 +17,29 @@ import { createOrder } from '../../services/database';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function CheckoutScreen({ route, navigation }) {
-  const { total, cart } = route.params;
+  const { total, cart, pickupAddress: savedAddress, paymentMethod: savedPaymentMethod, savedCard: savedCardData } = route.params;
   const [userId, setUserId] = useState(null);
   const [loading, setLoading] = useState(false);
   
-  // Данные заказа
-  const [pickupAddress, setPickupAddress] = useState('г. Таганрог, ул. Петровская 711');
+  const [pickupAddress, setPickupAddress] = useState(savedAddress || 'г. Таганрог, ул. Петровская 711');
   const [pickupDate, setPickupDate] = useState(new Date());
   const [pickupTime, setPickupTime] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [paymentMethod, setPaymentMethod] = useState(savedPaymentMethod || 'cash');
+  const [savedCard, setSavedCard] = useState(savedCardData || null);
   
-  // Данные карты для платежного шлюза
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [cardNumber, setCardNumber] = useState('');
   const [cardExpiry, setCardExpiry] = useState('');
   const [cardCvv, setCardCvv] = useState('');
   const [cardHolder, setCardHolder] = useState('');
   
-  // Статус платежа
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [orderNumber, setOrderNumber] = useState(null);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const pickupAddresses = [
     'г. Таганрог, ул. Петровская 711',
@@ -76,20 +76,38 @@ export default function CheckoutScreen({ route, navigation }) {
     });
   };
 
+  const formatCardNumber = (text) => {
+    let formatted = text.replace(/\s/g, '');
+    if (formatted.length > 16) formatted = formatted.slice(0, 16);
+    formatted = formatted.replace(/(.{4})/g, '$1 ').trim();
+    return formatted;
+  };
+
+  const formatExpiry = (text) => {
+    let formatted = text.replace(/\//g, '');
+    if (formatted.length > 4) formatted = formatted.slice(0, 4);
+    if (formatted.length >= 3) {
+      formatted = formatted.slice(0, 2) + '/' + formatted.slice(2);
+    }
+    return formatted;
+  };
+
+  const formatCvv = (text) => {
+    if (text.length > 3) return text.slice(0, 3);
+    return text;
+  };
+
   const processPayment = async () => {
-    // Симуляция платежного шлюза ЮMoney
     setPaymentProcessing(true);
     
-    // Имитация запроса к API ЮMoney
     return new Promise((resolve, reject) => {
       setTimeout(() => {
-        // Валидация карты (простая проверка)
-        if (cardNumber.length >= 16 && cardExpiry.length >= 5 && cardCvv.length >= 3) {
+        if (cardNumber.replace(/\s/g, '').length >= 16 && cardExpiry.length >= 5 && cardCvv.length >= 3) {
           resolve({ success: true, paymentId: 'PAY_' + Date.now() });
         } else {
           reject({ success: false, error: 'Неверные данные карты' });
         }
-      }, 2000);
+      }, 1500);
     });
   };
 
@@ -100,7 +118,7 @@ export default function CheckoutScreen({ route, navigation }) {
       return;
     }
 
-    if (paymentMethod === 'card' && !cardNumber) {
+    if (paymentMethod === 'card' && !savedCard && !cardNumber) {
       setShowPaymentModal(true);
       return;
     }
@@ -111,15 +129,19 @@ export default function CheckoutScreen({ route, navigation }) {
       let paymentResult = null;
       
       if (paymentMethod === 'card') {
-        paymentResult = await processPayment();
-        if (!paymentResult.success) {
-          Alert.alert('Ошибка оплаты', paymentResult.error || 'Платёж не прошёл');
-          setLoading(false);
-          return;
+        if (!savedCard && cardNumber) {
+          paymentResult = await processPayment();
+          if (!paymentResult.success) {
+            setErrorMessage(paymentResult.error || 'Платёж не прошёл');
+            setShowErrorModal(true);
+            setLoading(false);
+            return;
+          }
+        } else if (savedCard) {
+          paymentResult = { success: true, paymentId: 'PAY_' + Date.now() };
         }
       }
 
-      // Формируем данные заказа
       const desiredDateTime = new Date(pickupDate);
       desiredDateTime.setHours(pickupTime.getHours(), pickupTime.getMinutes());
 
@@ -143,24 +165,32 @@ export default function CheckoutScreen({ route, navigation }) {
         setOrderNumber(orderId);
         setShowSuccessModal(true);
       } else {
-        Alert.alert('Ошибка', 'Не удалось создать заказ');
+        setErrorMessage('Не удалось создать заказ');
+        setShowErrorModal(true);
       }
     } catch (error) {
       console.error('Order error:', error);
-      Alert.alert('Ошибка', 'Произошла ошибка при оформлении заказа');
+      setErrorMessage('Произошла ошибка при оформлении заказа');
+      setShowErrorModal(true);
     } finally {
       setLoading(false);
       setPaymentProcessing(false);
     }
   };
 
-  const handleConfirmPayment = async () => {
-    if (!cardNumber || !cardExpiry || !cardCvv) {
+  const handleSaveCard = () => {
+    if (cardNumber && cardExpiry && cardCvv && cardHolder) {
+      setSavedCard({ 
+        number: cardNumber.slice(-4), 
+        expiry: cardExpiry,
+        holder: cardHolder 
+      });
+      setPaymentMethod('card');
+      setShowPaymentModal(false);
+      handleSubmitOrder();
+    } else {
       Alert.alert('Ошибка', 'Заполните все поля карты');
-      return;
     }
-    setShowPaymentModal(false);
-    await handleSubmitOrder();
   };
 
   const handleSuccessClose = () => {
@@ -197,12 +227,12 @@ export default function CheckoutScreen({ route, navigation }) {
           <Text style={styles.sectionTitle}>ДАТА И ВРЕМЯ ПОЛУЧЕНИЯ</Text>
           
           <TouchableOpacity style={styles.dateTimeRow} onPress={() => setShowDatePicker(true)}>
-            <Ionicons name="calendar-outline" size={24} color="#FF147A" />
+            <Ionicons name="calendar-outline" size={20} color="#FF147A" />
             <Text style={styles.dateTimeText}>{formatDate(pickupDate)}</Text>
           </TouchableOpacity>
           
           <TouchableOpacity style={styles.dateTimeRow} onPress={() => setShowTimePicker(true)}>
-            <Ionicons name="time-outline" size={24} color="#FF147A" />
+            <Ionicons name="time-outline" size={20} color="#FF147A" />
             <Text style={styles.dateTimeText}>{formatTime(pickupTime)}</Text>
           </TouchableOpacity>
         </View>
@@ -257,13 +287,24 @@ export default function CheckoutScreen({ route, navigation }) {
           </TouchableOpacity>
 
           {paymentMethod === 'card' && (
-            <TouchableOpacity style={styles.cardInfoBtn} onPress={() => setShowPaymentModal(true)}>
-              <Ionicons name="card-outline" size={20} color="#FF147A" />
-              <Text style={styles.cardInfoText}>
-                {cardNumber ? `Карта •••• ${cardNumber.slice(-4)}` : 'Добавить карту'}
-              </Text>
-              <Ionicons name="chevron-forward" size={20} color="#FF147A" />
-            </TouchableOpacity>
+            <View style={styles.paymentCard}>
+              {savedCard ? (
+                <>
+                  <View>
+                    <Text style={styles.cardText}>Visa *{savedCard.number}</Text>
+                    <Text style={styles.cardHolderText}>{savedCard.holder}</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => setShowPaymentModal(true)}>
+                    <Text style={styles.changeText}>Изменить</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <TouchableOpacity style={styles.addCardBtn} onPress={() => setShowPaymentModal(true)}>
+                  <Ionicons name="card-outline" size={18} color="#FF147A" />
+                  <Text style={styles.addCardText}>Добавить карту</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           )}
         </View>
 
@@ -281,17 +322,12 @@ export default function CheckoutScreen({ route, navigation }) {
         </View>
 
         {/* Итого */}
-        <LinearGradient
-          colors={['#FFCBBB', '#FFCBBB']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.totalGradient}
-        >
+        <View style={styles.totalGradient}>
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Итого:</Text>
             <Text style={styles.totalPrice}>{Math.round(total)} ₽</Text>
           </View>
-        </LinearGradient>
+        </View>
 
         {/* Кнопка подтверждения */}
         <TouchableOpacity
@@ -299,24 +335,17 @@ export default function CheckoutScreen({ route, navigation }) {
           onPress={handleSubmitOrder}
           disabled={loading || paymentProcessing}
         >
-          <LinearGradient
-            colors={['#FF147A', '#FF69B4']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.confirmGradient}
-          >
-            {loading || paymentProcessing ? (
-              <ActivityIndicator color="#fff" size="small" />
-            ) : (
-              <Text style={styles.confirmButtonText}>
-                {paymentMethod === 'card' ? 'Подтвердить и оплатить' : 'Подтвердить заказ'}
-              </Text>
-            )}
-          </LinearGradient>
+          {loading || paymentProcessing ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <Text style={styles.confirmButtonText}>
+              {paymentMethod === 'card' ? 'Подтвердить и оплатить' : 'Подтвердить заказ'}
+            </Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Модальное окно ввода данных карты (ЮMoney) */}
+      {/* Модальное окно ввода данных карты */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -328,7 +357,7 @@ export default function CheckoutScreen({ route, navigation }) {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Оплата картой</Text>
               <TouchableOpacity onPress={() => setShowPaymentModal(false)}>
-                <Ionicons name="close" size={24} color="#999" />
+                <Ionicons name="close" size={22} color="#999" />
               </TouchableOpacity>
             </View>
 
@@ -338,7 +367,7 @@ export default function CheckoutScreen({ route, navigation }) {
               </Text>
               <View style={styles.cardPreviewRow}>
                 <Text style={styles.cardPreviewExpiry}>{cardExpiry || 'MM/YY'}</Text>
-                <Ionicons name="card" size={32} color="#fff" />
+                <Ionicons name="card" size={28} color="#fff" />
               </View>
             </View>
 
@@ -349,17 +378,12 @@ export default function CheckoutScreen({ route, navigation }) {
               keyboardType="numeric"
               maxLength={19}
               value={cardNumber}
-              onChangeText={(text) => {
-                let formatted = text.replace(/\s/g, '');
-                if (formatted.length > 16) formatted = formatted.slice(0, 16);
-                formatted = formatted.replace(/(.{4})/g, '$1 ').trim();
-                setCardNumber(formatted);
-              }}
+              onChangeText={(text) => setCardNumber(formatCardNumber(text))}
             />
             
             <TextInput
               style={styles.modalInput}
-              placeholder="Имя держателя (как на карте)"
+              placeholder="Имя держателя"
               placeholderTextColor="#999"
               value={cardHolder}
               onChangeText={setCardHolder}
@@ -372,7 +396,7 @@ export default function CheckoutScreen({ route, navigation }) {
                 placeholder="MM/YY"
                 placeholderTextColor="#999"
                 value={cardExpiry}
-                onChangeText={setCardExpiry}
+                onChangeText={(text) => setCardExpiry(formatExpiry(text))}
                 maxLength={5}
               />
               <TextInput
@@ -383,23 +407,16 @@ export default function CheckoutScreen({ route, navigation }) {
                 maxLength={3}
                 secureTextEntry
                 value={cardCvv}
-                onChangeText={setCardCvv}
+                onChangeText={(text) => setCardCvv(formatCvv(text))}
               />
             </View>
 
-            <TouchableOpacity style={styles.modalConfirmBtn} onPress={handleConfirmPayment}>
-              <LinearGradient
-                colors={['#FF147A', '#FF69B4']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.modalConfirmGradient}
-              >
-                <Text style={styles.modalConfirmText}>Оплатить {Math.round(total)} ₽</Text>
-              </LinearGradient>
+            <TouchableOpacity style={styles.modalConfirmBtn} onPress={handleSaveCard}>
+              <Text style={styles.modalConfirmText}>Оплатить {Math.round(total)} ₽</Text>
             </TouchableOpacity>
 
             <Text style={styles.modalSecureText}>
-              <Ionicons name="shield-checkmark" size={14} color="#4CAF50" /> 
+              <Ionicons name="shield-checkmark" size={12} color="#4CAF50" /> 
               Платежи защищены ЮMoney
             </Text>
           </View>
@@ -415,22 +432,34 @@ export default function CheckoutScreen({ route, navigation }) {
       >
         <View style={styles.successOverlay}>
           <View style={styles.successContent}>
-            <Ionicons name="checkmark-circle" size={80} color="#4CAF50" />
+            <Ionicons name="checkmark-circle" size={60} color="#4CAF50" />
             <Text style={styles.successTitle}>Заказ успешно оформлен!</Text>
-            <Text style={styles.successNumber}>Номер заказа: #{orderNumber}</Text>
+            <Text style={styles.successNumber}>№ {orderNumber}</Text>
             <Text style={styles.successDate}>
-              Дата получения: {formatDate(pickupDate)} в {formatTime(pickupTime)}
+              {formatDate(pickupDate)} в {formatTime(pickupTime)}
             </Text>
-            <Text style={styles.successAddress}>Самовывоз: {pickupAddress}</Text>
+            <Text style={styles.successAddress}>{pickupAddress}</Text>
             <TouchableOpacity style={styles.successButton} onPress={handleSuccessClose}>
-              <LinearGradient
-                colors={['#FF147A', '#FF69B4']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.successGradient}
-              >
-                <Text style={styles.successButtonText}>Перейти в каталог</Text>
-              </LinearGradient>
+              <Text style={styles.successButtonText}>В каталог</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Модальное окно ошибки */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showErrorModal}
+        onRequestClose={() => setShowErrorModal(false)}
+      >
+        <View style={styles.errorOverlay}>
+          <View style={styles.errorContent}>
+            <Ionicons name="alert-circle" size={50} color="#FF147A" />
+            <Text style={styles.errorTitle}>Ошибка</Text>
+            <Text style={styles.errorText}>{errorMessage}</Text>
+            <TouchableOpacity style={styles.errorButton} onPress={() => setShowErrorModal(false)}>
+              <Text style={styles.errorButtonText}>OK</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -454,11 +483,12 @@ const styles = StyleSheet.create({
     borderColor: '#f0f0f0',
   },
   sectionTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
+    fontSize: 12,
+    fontWeight: '600',
     color: '#FF147A',
     marginBottom: 12,
     letterSpacing: 1,
+    fontFamily: 'Poppins-SemiBold',
   },
   addressContainer: {
     flexDirection: 'row',
@@ -466,8 +496,8 @@ const styles = StyleSheet.create({
   },
   addressOption: {
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingVertical: 6,
+    borderRadius: 18,
     backgroundColor: '#f0f0f0',
     marginRight: 8,
     marginBottom: 8,
@@ -478,6 +508,7 @@ const styles = StyleSheet.create({
   addressText: {
     fontSize: 12,
     color: '#666',
+    fontFamily: 'Poppins-Regular',
   },
   addressTextActive: {
     color: '#fff',
@@ -485,19 +516,20 @@ const styles = StyleSheet.create({
   dateTimeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
   dateTimeText: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#2C2C2C',
     marginLeft: 12,
+    fontFamily: 'Poppins-Regular',
   },
   paymentOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
@@ -505,39 +537,56 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   radioCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     borderWidth: 2,
     borderColor: '#FF147A',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 10,
   },
   radioSelected: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
     backgroundColor: '#FF147A',
   },
   paymentOptionText: {
-    fontSize: 14,
+    fontSize: 13,
+    color: '#2C2C2C',
+    fontFamily: 'Poppins-Regular',
+  },
+  paymentCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  cardText: {
+    fontSize: 13,
+    fontWeight: '500',
     color: '#2C2C2C',
   },
-  cardInfoBtn: {
+  cardHolderText: {
+    fontSize: 10,
+    color: '#999',
+    marginTop: 2,
+  },
+  changeText: {
+    fontSize: 12,
+    color: '#FF147A',
+  },
+  addCardBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 12,
-    padding: 12,
-    backgroundColor: '#f8f8f8',
-    borderRadius: 8,
+    paddingVertical: 8,
   },
-  cardInfoText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#2C2C2C',
-    marginLeft: 12,
+  addCardText: {
+    fontSize: 13,
+    color: '#FF147A',
+    fontWeight: '500',
+    marginLeft: 8,
   },
   orderItemRow: {
     flexDirection: 'row',
@@ -545,21 +594,23 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   orderItemName: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#2C2C2C',
     flex: 2,
+    fontFamily: 'Poppins-Regular',
   },
   orderItemPrice: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#2C2C2C',
     fontWeight: '500',
   },
   totalGradient: {
+    backgroundColor: 'rgba(255, 203, 187, 0.5)',
     borderRadius: 12,
     marginTop: 8,
     marginHorizontal: 16,
-    marginBottom: 16,
-    paddingVertical: 16,
+    marginBottom: 20,
+    paddingVertical: 14,
     paddingHorizontal: 20,
   },
   totalRow: {
@@ -568,29 +619,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   totalLabel: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 15,
+    fontWeight: '600',
     color: '#2C2C2C',
+    fontFamily: 'Poppins-SemiBold',
   },
   totalPrice: {
-    fontSize: 22,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '700',
     color: '#2C2C2C',
   },
   confirmButton: {
+    backgroundColor: '#FF147A',
     marginHorizontal: 16,
     marginBottom: 30,
+    paddingVertical: 15,
     borderRadius: 12,
-    overflow: 'hidden',
-  },
-  confirmGradient: {
-    paddingVertical: 16,
     alignItems: 'center',
   },
   confirmButtonText: {
     color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '600',
+    fontFamily: 'Poppins-SemiBold',
   },
   modalOverlay: {
     flex: 1,
@@ -608,24 +659,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '600',
     color: '#FF147A',
+    fontFamily: 'Poppins-SemiBold',
   },
   cardPreview: {
     backgroundColor: '#2C2C2C',
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
+    padding: 14,
+    marginBottom: 16,
   },
   cardPreviewNumber: {
-    fontSize: 18,
+    fontSize: 13,
     color: '#fff',
-    letterSpacing: 2,
-    marginBottom: 12,
+    letterSpacing: 1,
+    marginBottom: 10,
   },
   cardPreviewRow: {
     flexDirection: 'row',
@@ -633,7 +685,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cardPreviewExpiry: {
-    fontSize: 14,
+    fontSize: 11,
     color: '#ccc',
   },
   modalInput: {
@@ -641,9 +693,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 10,
-    padding: 12,
-    fontSize: 16,
-    marginBottom: 12,
+    padding: 10,
+    fontSize: 14,
+    marginBottom: 10,
   },
   modalRow: {
     flexDirection: 'row',
@@ -653,24 +705,22 @@ const styles = StyleSheet.create({
     width: '48%',
   },
   modalConfirmBtn: {
+    backgroundColor: '#FF147A',
+    paddingVertical: 12,
     borderRadius: 10,
-    overflow: 'hidden',
-    marginTop: 12,
-  },
-  modalConfirmGradient: {
-    paddingVertical: 14,
     alignItems: 'center',
+    marginTop: 10,
   },
   modalConfirmText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: '600',
   },
   modalSecureText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#999',
     textAlign: 'center',
-    marginTop: 16,
+    marginTop: 12,
   },
   successOverlay: {
     flex: 1,
@@ -686,42 +736,78 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   successTitle: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#2C2C2C',
-    marginTop: 16,
-    marginBottom: 8,
+    marginTop: 12,
+    marginBottom: 6,
     textAlign: 'center',
   },
   successNumber: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#FF147A',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   successDate: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#666',
     marginBottom: 4,
   },
   successAddress: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#666',
-    marginBottom: 24,
+    marginBottom: 20,
     textAlign: 'center',
   },
   successButton: {
-    borderRadius: 12,
-    overflow: 'hidden',
+    backgroundColor: '#FF147A',
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 25,
     width: '100%',
-  },
-  successGradient: {
-    paddingVertical: 14,
     alignItems: 'center',
   },
   successButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  errorOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorContent: {
+    width: '80%',
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+  },
+  errorTitle: {
+    fontSize: 18,
     fontWeight: 'bold',
+    color: '#FF147A',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  errorButton: {
+    backgroundColor: '#FF147A',
+    paddingVertical: 10,
+    paddingHorizontal: 30,
+    borderRadius: 25,
+  },
+  errorButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
