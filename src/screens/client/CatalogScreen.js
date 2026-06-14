@@ -257,6 +257,8 @@ export default function CatalogScreen({ navigation }) {
             <Text style={styles.calories}>{item.calories || 0} ккал</Text>
           </View>
           
+          <Text style={styles.price}>{item.price} ₽</Text>
+          
           <View style={styles.quantityRow}>
             {quantity > 0 && (
               <TouchableOpacity style={styles.qtyButton} onPress={() => updateCartItemQuantity(item, -1)}>
@@ -348,6 +350,12 @@ export default function CatalogScreen({ navigation }) {
             }}
             onScrollBeginDrag={stopAutoScroll}
             onScrollEndDrag={startAutoScroll}
+            scrollEventThrottle={16}
+            getItemLayout={(data, index) => ({
+              length: width,
+              offset: width * index,
+              index,
+            })}
           />
           <View style={styles.dotContainer}>
             {banners.map((_, index) => (
@@ -479,13 +487,13 @@ const styles = StyleSheet.create({
   bannerContainer: {
     width: width,
     height: BANNER_HEIGHT,
-    paddingHorizontal: 16,
   },
   bannerImage: {
     width: width - 32,
     height: BANNER_HEIGHT,
     borderRadius: 12,
     backgroundColor: '#F0F0F0',
+    alignSelf: 'center',
   },
   dotContainer: {
     flexDirection: 'row',
@@ -508,11 +516,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#CCCCCC',
   },
   categoriesList: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingVertical: 12,
   },
   categoryChip: {
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
     backgroundColor: '#F0F0F0',
@@ -582,11 +590,18 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     fontFamily: 'Poppins-Regular',
   },
+  price: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#2C2C2C',
+    textAlign: 'center',
+    marginBottom: 10,
+    fontFamily: 'Poppins-Bold',
+  },
   quantityRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 4,
   },
   qtyButton: {
     width: 28,
