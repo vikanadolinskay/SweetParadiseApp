@@ -8,7 +8,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
   ActivityIndicator,
   Modal,
 } from 'react-native';
@@ -16,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import MaskedView from '@react-native-masked-view/masked-view';
 import { Ionicons } from '@expo/vector-icons';
 import { createUser, checkEmailExists } from '../../services/database';
+import { showGradientAlert } from '../../components/GradientAlert';
 
 export default function RegisterScreen({ navigation }) {
   const [fullName, setFullName] = useState('');
@@ -40,28 +40,43 @@ export default function RegisterScreen({ navigation }) {
 
   const handleSendCode = () => {
     if (!fullName || !phone || !email || !password || !confirmPassword) {
-      Alert.alert('Ошибка', 'Заполните все поля');
+      showGradientAlert({ 
+        title: 'Ошибка', 
+        message: 'Заполните все поля' 
+      });
       return;
     }
 
     if (!acceptedTerms) {
-      Alert.alert('Ошибка', 'Примите условия Пользовательского соглашения');
+      showGradientAlert({ 
+        title: 'Ошибка', 
+        message: 'Примите условия Пользовательского соглашения' 
+      });
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Ошибка', 'Пароли не совпадают');
+      showGradientAlert({ 
+        title: 'Ошибка', 
+        message: 'Пароли не совпадают' 
+      });
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert('Ошибка', 'Пароль должен быть не менее 6 символов');
+      showGradientAlert({ 
+        title: 'Ошибка', 
+        message: 'Пароль должен быть не менее 6 символов' 
+      });
       return;
     }
 
     const emailRegex = /^[^\s@]+@([^\s@.,]+\.)+[^\s@.,]{2,}$/;
     if (!emailRegex.test(email)) {
-      Alert.alert('Ошибка', 'Введите корректный email');
+      showGradientAlert({ 
+        title: 'Ошибка', 
+        message: 'Введите корректный email' 
+      });
       return;
     }
 
@@ -74,7 +89,10 @@ export default function RegisterScreen({ navigation }) {
 
   const handleConfirmCode = async () => {
     if (enteredCode !== generatedCode) {
-      Alert.alert('Ошибка', 'Неверный код подтверждения');
+      showGradientAlert({ 
+        title: 'Ошибка', 
+        message: 'Неверный код подтверждения' 
+      });
       return;
     }
 
@@ -83,7 +101,10 @@ export default function RegisterScreen({ navigation }) {
 
     const emailExists = await checkEmailExists(tempUserData.email);
     if (emailExists) {
-      Alert.alert('Ошибка', 'Пользователь с таким email уже существует');
+      showGradientAlert({ 
+        title: 'Ошибка', 
+        message: 'Пользователь с таким email уже существует' 
+      });
       setLoading(false);
       return;
     }
@@ -97,11 +118,16 @@ export default function RegisterScreen({ navigation }) {
     setLoading(false);
 
     if (result.success) {
-      Alert.alert('Успешно', 'Регистрация прошла успешно!', [
-        { text: 'OK', onPress: () => navigation.navigate('Login') }
-      ]);
+      showGradientAlert({ 
+        title: 'Успешно', 
+        message: 'Регистрация прошла успешно!',
+        onOk: () => navigation.navigate('Login')
+      });
     } else {
-      Alert.alert('Ошибка', result.error || 'Не удалось создать аккаунт');
+      showGradientAlert({ 
+        title: 'Ошибка', 
+        message: result.error || 'Не удалось создать аккаунт' 
+      });
     }
   };
 

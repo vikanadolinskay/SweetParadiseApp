@@ -12,12 +12,12 @@ import {
   RefreshControl,
   Modal,
   Dimensions,
-  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getProducts, addToCart, getBanners, getCartItems } from '../../services/database';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { showGradientAlert } from '../../components/GradientAlert';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 48) / 2;
@@ -174,16 +174,25 @@ export default function CatalogScreen({ navigation }) {
 
   const handleAddToCart = async (product) => {
     if (!userId) {
-      Alert.alert('Ошибка', 'Пожалуйста, войдите в аккаунт');
+      showGradientAlert({ 
+        title: 'Ошибка', 
+        message: 'Пожалуйста, войдите в аккаунт' 
+      });
       navigation.navigate('Login');
       return;
     }
     
     try {
       await addToCart(userId, product.product_id, 1, null);
-      Alert.alert('Добавлено', `${product.name} добавлен в корзину`);
+      showGradientAlert({ 
+        title: 'Добавлено', 
+        message: `${product.name} добавлен в корзину` 
+      });
     } catch (error) {
-      Alert.alert('Ошибка', 'Не удалось добавить товар в корзину');
+      showGradientAlert({ 
+        title: 'Ошибка', 
+        message: 'Не удалось добавить товар в корзину' 
+      });
     }
   };
 
@@ -225,14 +234,15 @@ export default function CatalogScreen({ navigation }) {
             </Text>
           )}
           
-          <Text style={styles.calories}>{item.calories || 0} ккал</Text>
-          
-          <View style={styles.bottomRow}>
-            <Text style={styles.price}>{item.price} ₽</Text>
-            <TouchableOpacity style={styles.addButton} onPress={() => handleAddToCart(item)}>
-              <Text style={styles.addButtonText}>+</Text>
-            </TouchableOpacity>
+          <View style={styles.caloriesRow}>
+            <Text style={styles.calories}>{item.calories || 0} ккал</Text>
           </View>
+          
+          <Text style={styles.price}>{item.price} ₽</Text>
+          
+          <TouchableOpacity onPress={() => handleAddToCart(item)}>
+            <Text style={styles.addButtonText}>+</Text>
+          </TouchableOpacity>
         </View>
       </TouchableOpacity>
     );
@@ -473,7 +483,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   categoryChip: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
     paddingVertical: 8,
     borderRadius: 20,
     backgroundColor: '#F0F0F0',
@@ -514,6 +524,7 @@ const styles = StyleSheet.create({
   },
   cardContent: {
     padding: 12,
+    alignItems: 'center',
   },
   name: {
     fontSize: 14,
@@ -531,36 +542,28 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: 'Poppins-Regular',
   },
+  caloriesRow: {
+    alignItems: 'flex-end',
+    width: '100%',
+    marginBottom: 8,
+  },
   calories: {
     fontSize: 12,
     color: '#999',
-    textAlign: 'center',
-    marginBottom: 8,
+    textAlign: 'right',
     fontFamily: 'Poppins-Regular',
-  },
-  bottomRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 4,
   },
   price: {
     fontSize: 16,
     fontWeight: '700',
     color: '#2C2C2C',
+    textAlign: 'center',
+    marginBottom: 10,
     fontFamily: 'Poppins-Bold',
   },
-  addButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#FF147A',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   addButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
+    color: '#FF147A',
+    fontSize: 20,
     fontWeight: 'bold',
   },
   center: {

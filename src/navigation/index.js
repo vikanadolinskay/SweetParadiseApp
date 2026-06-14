@@ -25,6 +25,9 @@ const Tab = createBottomTabNavigator();
 // Градиентная иконка
 const GradientIcon = ({ name, size, focused }) => {
   const IconComponent = require('react-native-vector-icons/MaterialIcons').default;
+  if (!focused) {
+    return <IconComponent name={name} size={size} color="#CCCCCC" />;
+  }
   return (
     <LinearGradient
       colors={['#FFBCD9', '#FFCBBB']}
@@ -47,31 +50,23 @@ const ClientTabs = () => {
           else if (route.name === 'Корзина') iconName = 'shopping-cart';
           else if (route.name === 'Заказы') iconName = 'list-alt';
           else if (route.name === 'Профиль') iconName = 'person';
-          
-          // Активная иконка - градиентная, неактивная - серая
-          if (focused) {
-            return <GradientIcon name={iconName} size={24} focused={true} />;
-          } else {
-            const IconComponent = require('react-native-vector-icons/MaterialIcons').default;
-            return <IconComponent name={iconName} size={24} color="#CCCCCC" />;
-          }
+          return <GradientIcon name={iconName} size={24} focused={focused} />;
         },
         tabBarActiveTintColor: '#FF147A',
         tabBarInactiveTintColor: '#CCCCCC',
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: 'rgba(255, 203, 187, 0.5)', // полупрозрачный #FFCBBB
+          backgroundColor: '#FFFFFF', // ← белый фон вместо персикового
           height: 60,
           paddingBottom: 8,
           paddingTop: 8,
-          borderTopWidth: 0,
-          elevation: 0,
+          borderTopWidth: 1,
+          borderTopColor: '#EEEEEE',
         },
         tabBarLabelStyle: {
           fontSize: 11,
           fontFamily: 'Poppins-Regular',
         },
-        tabBarActiveBackgroundColor: 'rgba(200, 200, 200, 0.3)', // серый прозрачный прямоугольник вокруг активной иконки
       })}
     >
       <Tab.Screen name="Каталог" component={CatalogScreen} />

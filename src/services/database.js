@@ -48,7 +48,7 @@ const getLocalImage = (imagePath) => {
     'images/macaron_truffle.jpg': require('../../assets/images/macaron_truffle.jpg'),
     'images/mirror.jpg': require('../../assets/images/mirror.jpg'),
     'images/ny_blueberry.jpg': require('../../assets/images/ny_blueberry.jpg'),
-    'images/ny_cheescake.jpg': require('../../assets/images/ny_cheesecake.jpg'),
+    'images/ny_cheesecake.jpg': require('../../assets/images/ny_cheesecake.jpg'),
     'images/ny_raspberry.jpg': require('../../assets/images/ny_raspberry.jpg'),
     'images/opera.jpg': require('../../assets/images/opera.jpg'),
     'images/panna_cotta.jpg': require('../../assets/images/panna_cotta.jpg'),
@@ -422,6 +422,23 @@ export const updateLoyaltyPoints = async (userId, points) => {
   await dbConn.runAsync('UPDATE users SET loyalty_points = loyalty_points + ? WHERE user_id = ?', [points, userId]);
 };
 
+// ========== ОБНОВЛЕНИЕ ПРОФИЛЯ ПОЛЬЗОВАТЕЛЯ ==========
+export const updateUserProfile = async (userId, data) => {
+  const dbConn = await getDb();
+  const { full_name, phone, email } = data;
+  
+  try {
+    await dbConn.runAsync(
+      `UPDATE users SET full_name = ?, phone = ?, email = ? WHERE user_id = ?`,
+      [full_name, phone, email, userId]
+    );
+    return true;
+  } catch (error) {
+    console.error('[UPDATE] Ошибка обновления профиля:', error);
+    return false;
+  }
+};
+
 export const getOrdersByUserId = async (userId) => {
   const dbConn = await getDb();
   const orders = await dbConn.getAllAsync(
@@ -552,6 +569,7 @@ export default {
   getUserById,
   authenticateUser,
   updateLoyaltyPoints,
+  updateUserProfile,
   getOrdersByUserId,
   getOrderItems,
   createOrder,

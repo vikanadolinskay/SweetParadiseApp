@@ -95,7 +95,7 @@ export default function ProductDetailScreen({ route, navigation }) {
       {/* Заголовок */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+          <Ionicons name="arrow-back" size={24} color="#FF147A" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Детали товара</Text>
         <View style={styles.placeholder} />
@@ -140,7 +140,8 @@ export default function ProductDetailScreen({ route, navigation }) {
             </TouchableOpacity>
           </LinearGradient>
           
-          {product.is_customizable === 1 && (
+          {/* Кнопка "Настроить" только для тортов */}
+          {product.is_customizable === 1 && product.category === 'cakes' && (
             <LinearGradient
               colors={['#FFBCD9', '#FFCBBB']}
               start={{ x: 0, y: 0 }}
@@ -164,12 +165,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff' 
   },
   header: {
-    backgroundColor: '#FFBCD9',
+    backgroundColor: '#FFFFFF', // белый фон
     paddingVertical: 12,
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
   },
   backButton: {
     padding: 4,
@@ -177,7 +180,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#fff',
+    color: '#FF147A', // розовый цвет
     fontFamily: 'Poppins-SemiBold',
     textAlign: 'center',
   },

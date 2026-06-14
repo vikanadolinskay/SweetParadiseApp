@@ -8,7 +8,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -16,6 +15,7 @@ import MaskedView from '@react-native-masked-view/masked-view';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authenticateUser } from '../../services/database';
+import { showGradientAlert } from '../../components/GradientAlert';
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
@@ -35,7 +35,10 @@ export default function LoginScreen({ navigation }) {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Ошибка', 'Заполните все поля');
+      showGradientAlert({ 
+        title: 'Ошибка', 
+        message: 'Заполните все поля' 
+      });
       return;
     }
 
@@ -48,7 +51,10 @@ export default function LoginScreen({ navigation }) {
       await AsyncStorage.setItem('isLoggedIn', 'true');
       navigation.replace('ClientTabs');
     } else {
-      Alert.alert('Ошибка входа', result.error);
+      showGradientAlert({ 
+        title: 'Ошибка входа', 
+        message: result.error 
+      });
     }
   };
 
@@ -131,7 +137,7 @@ export default function LoginScreen({ navigation }) {
             <Text style={styles.registerLink}>Зарегистрироваться</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => Alert.alert('Восстановление', 'Свяжитесь с администратором для сброса пароля')}>
+          <TouchableOpacity onPress={() => showGradientAlert({ title: 'Восстановление', message: 'Свяжитесь с администратором для сброса пароля' })}>
             <Text style={styles.forgotLink}>Забыли пароль?</Text>
           </TouchableOpacity>
         </View>

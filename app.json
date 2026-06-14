@@ -11,14 +11,23 @@
             "assets/images/*"
         ],
         "ios": {
-            "supportsTablet": true
+            "supportsTablet": true,
+            "infoPlist": {
+                "NSCameraUsageDescription": "Разрешите доступ к камере для установки фото профиля",
+                "NSPhotoLibraryUsageDescription": "Разрешите доступ к галерее для выбора фото профиля"
+            }
         },
         "android": {
             "adaptiveIcon": {
                 "backgroundColor": "#FFBCD9",
                 "foregroundImage": "./assets/sweet.jpg"
             },
-            "package": "com.victoria007.SweetParadise"
+            "package": "com.victoria007.SweetParadise",
+            "permissions": [
+                "android.permission.CAMERA",
+                "android.permission.READ_EXTERNAL_STORAGE",
+                "android.permission.WRITE_EXTERNAL_STORAGE"
+            ]
         },
         "web": {
             "favicon": "./assets/favicon.png"
