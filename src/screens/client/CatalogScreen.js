@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import {
   Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { getProducts, addToCart, getBanners } from '../../services/database';
+import { getProducts, addToCart, getBanners, getCartItems } from '../../services/database';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -59,6 +59,9 @@ export default function CatalogScreen({ navigation }) {
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [userId, setUserId] = useState(null);
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
+  const [cartCount, setCartCount] = useState(0);
+  const flatListRef = useRef(null);
+  const autoScrollInterval = useRef(null);
 
   const categories = [
     { id: 'all', title: 'Все' },
@@ -80,6 +83,7 @@ export default function CatalogScreen({ navigation }) {
       if (userStr) {
         const user = JSON.parse(userStr);
         setUserId(user.user_id);
+        loadCartCount(user.user_id);
       }
     };
     getUserId();
@@ -90,6 +94,37 @@ export default function CatalogScreen({ navigation }) {
   useEffect(() => {
     filterAndSort();
   }, [products, selectedCategory, search, sortOrder]);
+
+  useEffect(() => {
+    if (banners.length > 1) {
+      startAutoScroll();
+    }
+    return () => stopAutoScroll();
+  }, [banners]);
+
+  const startAutoScroll = () => {
+    if (autoScrollInterval.current) clearInterval(autoScrollInterval.current);
+    autoScrollInterval.current = setInterval(() => {
+      if (banners.length > 0) {
+        const nextIndex = (currentBannerIndex + 1) % banners.length;
+        flatListRef.current?.scrollToIndex({ index: nextIndex, animated: true });
+        setCurrentBannerIndex(nextIndex);
+      }
+    }, 5000);
+  };
+
+  const stopAutoScroll = () => {
+    if (autoScrollInterval.current) {
+      clearInterval(autoScrollInterval.current);
+      autoScrollInterval.current = null;
+    }
+  };
+
+  const loadCartCount = async (uid) => {
+    const items = await getCartItems(uid);
+    const count = items.reduce((sum, item) => sum + item.quantity, 0);
+    setCartCount(count);
+  };
 
   const loadBanners = async () => {
     try {
@@ -141,22 +176,28 @@ export default function CatalogScreen({ navigation }) {
     clearCache();
     await loadProducts();
     await loadBanners();
+    if (userId) await loadCartCount(userId);
     setRefreshing(false);
-  }, []);
+  }, [userId]);
 
   const handleAddToCart = async (product) => {
     if (!userId) {
-      Alert.alert('Ошибка', 'Пожалуйста, войдите в аккаунт');
+      showGradientAlert('Ошибка', 'Пожалуйста, войдите в аккаунт');
       navigation.navigate('Login');
       return;
     }
     
     try {
       await addToCart(userId, product.product_id, 1, null);
-      Alert.alert('Добавлено', `${product.name} добавлен в корзину`);
+      await loadCartCount(userId);
+      showGradientAlert('Добавлено', `${product.name} добавлен в корзину`);
     } catch (error) {
-      Alert.alert('Ошибка', 'Не удалось добавить товар в корзину');
+      showGradientAlert('Ошибка', 'Не удалось добавить товар в корзину');
     }
+  };
+
+  const showGradientAlert = (title, message) => {
+    Alert.alert(title, message, [{ text: 'OK' }], { cancelable: true });
   };
 
   const renderBanner = ({ item }) => {
@@ -197,7 +238,6 @@ export default function CatalogScreen({ navigation }) {
             </Text>
           )}
           
-          {/* Калории - выравнены по правому краю */}
           <View style={styles.caloriesRow}>
             {item.calories && item.calories > 0 && (
               <Text style={styles.calories}>{item.calories} ккал</Text>
@@ -245,7 +285,6 @@ export default function CatalogScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      {/* Градиентная верхняя панель */}
       <LinearGradient
         colors={['#FFBCD9', '#FFCBBB']}
         start={{ x: 0, y: 0 }}
@@ -267,10 +306,10 @@ export default function CatalogScreen({ navigation }) {
         </TouchableOpacity>
       </LinearGradient>
 
-      {/* Карусель баннеров */}
       {banners.length > 0 && (
         <View style={styles.bannerWrapper}>
           <FlatList
+            ref={flatListRef}
             data={banners}
             renderItem={renderBanner}
             keyExtractor={(item) => item.banner_id?.toString()}
@@ -283,8 +322,9 @@ export default function CatalogScreen({ navigation }) {
               const index = Math.round(event.nativeEvent.contentOffset.x / width);
               setCurrentBannerIndex(index);
             }}
+            onScrollBeginDrag={stopAutoScroll}
+            onScrollEndDrag={startAutoScroll}
           />
-          {/* Индикаторы точек */}
           <View style={styles.dotContainer}>
             {banners.map((_, index) => (
               <View
@@ -516,7 +556,7 @@ const styles = StyleSheet.create({
   },
   bottomRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 4,
   },
@@ -525,20 +565,19 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#2C2C2C',
     fontFamily: 'Poppins-SemiBold',
-    textAlign: 'center',
   },
   addButton: {
-    position: 'absolute',
-    right: 0,
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: '#FF147A',
+    borderWidth: 1.5,
+    borderColor: '#FF147A',
+    backgroundColor: '#FFBCD9',
     justifyContent: 'center',
     alignItems: 'center',
   },
   addButtonText: {
-    color: '#FFFFFF',
+    color: '#FF147A',
     fontSize: 16,
     fontWeight: 'bold',
   },

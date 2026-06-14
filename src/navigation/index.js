@@ -1,9 +1,10 @@
+// src/navigation/index.js
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { View, Text } from 'react-native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
@@ -21,27 +22,51 @@ import CheckoutScreen from '../screens/client/CheckoutScreen';
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
-const EmptyScreen = ({ route }) => (
-  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-    <Text>Экран {route.name} в разработке</Text>
-  </View>
-);
+const GradientIcon = ({ name, size, focused }) => {
+  const IconComponent = require('react-native-vector-icons/MaterialIcons').default;
+  return (
+    <LinearGradient
+      colors={focused ? ['#FFBCD9', '#FFCBBB'] : ['#CCCCCC', '#CCCCCC']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 0 }}
+      style={{
+        width: size + 10,
+        height: size + 10,
+        borderRadius: (size + 10) / 2,
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}
+    >
+      <IconComponent name={name} size={size} color="#fff" />
+    </LinearGradient>
+  );
+};
 
 const ClientTabs = () => {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        tabBarIcon: ({ color, size }) => {
+        tabBarIcon: ({ focused, color, size }) => {
           let iconName;
           if (route.name === 'Каталог') iconName = 'menu-book';
           else if (route.name === 'Корзина') iconName = 'shopping-cart';
           else if (route.name === 'Заказы') iconName = 'list-alt';
           else if (route.name === 'Профиль') iconName = 'person';
-          return <Icon name={iconName} size={size} color={color} />;
+          return <GradientIcon name={iconName} size={22} focused={focused} />;
         },
-        tabBarActiveTintColor: '#FF69B4',
-        tabBarInactiveTintColor: 'gray',
-        headerShown: false, // Скрываем заголовок для всех экранов в табах
+        tabBarActiveTintColor: '#FF147A',
+        tabBarInactiveTintColor: '#999',
+        headerShown: false,
+        tabBarStyle: {
+          backgroundColor: '#FFF4F2',
+          height: 60,
+          paddingBottom: 8,
+          paddingTop: 8,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontFamily: 'Poppins-Regular',
+        },
       })}
     >
       <Tab.Screen name="Каталог" component={CatalogScreen} />
@@ -71,37 +96,35 @@ export default function AppNavigator() {
           component={ClientTabs} 
           options={{ headerShown: false }} 
         />
-
-        {/* Добавленные экраны для навигации */}
         <Stack.Screen 
           name="ProductDetail" 
           component={ProductDetailScreen} 
-          options={{ title: 'Детали товара', headerStyle: { backgroundColor: '#FFBCD9' }, headerTintColor: '#fff' }} 
+          options={{ headerShown: false }} 
         />
         <Stack.Screen 
           name="Customize1" 
           component={CustomizeScreen1} 
-          options={{ title: 'Выбор формы', headerStyle: { backgroundColor: '#FFBCD9' }, headerTintColor: '#fff' }} 
+          options={{ headerShown: false }} 
         />
         <Stack.Screen 
           name="Customize2" 
           component={CustomizeScreen2} 
-          options={{ title: 'Выбор размера', headerStyle: { backgroundColor: '#FFBCD9' }, headerTintColor: '#fff' }} 
+          options={{ headerShown: false }} 
         />
         <Stack.Screen 
           name="Customize3" 
           component={CustomizeScreen3} 
-          options={{ title: 'Выбор начинки', headerStyle: { backgroundColor: '#FFBCD9' }, headerTintColor: '#fff' }} 
+          options={{ headerShown: false }} 
         />
         <Stack.Screen 
           name="Customize4" 
           component={CustomizeScreen4} 
-          options={{ title: 'Выбор декора', headerStyle: { backgroundColor: '#FFBCD9' }, headerTintColor: '#fff' }} 
+          options={{ headerShown: false }} 
         />
         <Stack.Screen 
           name="Checkout" 
           component={CheckoutScreen} 
-          options={{ title: 'Оформление заказа', headerStyle: { backgroundColor: '#FFBCD9' }, headerTintColor: '#fff' }} 
+          options={{ headerShown: false }} 
         />
       </Stack.Navigator>
     </NavigationContainer>

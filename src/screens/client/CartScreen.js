@@ -90,6 +90,10 @@ export default function CartScreen({ navigation }) {
     return parts.length > 0 ? parts.join(' • ') : null;
   };
 
+  const showGradientAlert = (title, message, onOk) => {
+    Alert.alert(title, message, [{ text: 'OK', onPress: onOk }]);
+  };
+
   const handleRemove = (cartItemId, productName) => {
     Alert.alert(
       'Удаление',
@@ -120,13 +124,13 @@ export default function CartScreen({ navigation }) {
     if (promoCode.toLowerCase() === 'sweet2026') {
       setDiscount(10);
       setPromoApplied(true);
-      Alert.alert('Успешно', 'Промокод применён! Скидка 10%');
+      showGradientAlert('Успешно', 'Промокод применён! Скидка 10%');
     } else if (promoCode.toLowerCase() === 'welcome') {
       setDiscount(5);
       setPromoApplied(true);
-      Alert.alert('Успешно', 'Промокод применён! Скидка 5%');
+      showGradientAlert('Успешно', 'Промокод применён! Скидка 5%');
     } else {
-      Alert.alert('Ошибка', 'Неверный промокод');
+      showGradientAlert('Ошибка', 'Неверный промокод');
     }
   };
 
@@ -139,9 +143,9 @@ export default function CartScreen({ navigation }) {
       });
       setPaymentMethod('card');
       setShowPaymentModal(false);
-      Alert.alert('Успешно', 'Карта сохранена');
+      showGradientAlert('Успешно', 'Карта сохранена');
     } else {
-      Alert.alert('Ошибка', 'Заполните все поля карты');
+      showGradientAlert('Ошибка', 'Заполните все поля карты');
     }
   };
 
@@ -168,7 +172,7 @@ export default function CartScreen({ navigation }) {
 
   const handleProceedToCheckout = () => {
     if (cart.length === 0) {
-      Alert.alert('Корзина пуста', 'Добавьте товары в корзину');
+      showGradientAlert('Корзина пуста', 'Добавьте товары в корзину');
       return;
     }
     
@@ -369,13 +373,18 @@ export default function CartScreen({ navigation }) {
             </View>
           </View>
 
-          {/* Итого с полупрозрачным фоном */}
-          <View style={styles.finalTotalGradient}>
+          {/* Итого - белым фоном #FFCBBB */}
+          <LinearGradient
+            colors={['#FFCBBB', '#FFCBBB']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.finalTotalGradient}
+          >
             <View style={styles.finalTotalRow}>
               <Text style={styles.finalTotalLabel}>Итого:</Text>
               <Text style={styles.finalTotalPrice}>{Math.round(total)} ₽</Text>
             </View>
-          </View>
+          </LinearGradient>
 
           <TouchableOpacity 
             style={styles.payButton}
@@ -453,7 +462,14 @@ export default function CartScreen({ navigation }) {
             </View>
 
             <TouchableOpacity style={styles.modalSaveBtn} onPress={handleSaveCard}>
-              <Text style={styles.modalSaveBtnText}>Сохранить карту</Text>
+              <LinearGradient
+                colors={['#FF147A', '#FF69B4']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.modalSaveGradient}
+              >
+                <Text style={styles.modalSaveBtnText}>Сохранить карту</Text>
+              </LinearGradient>
             </TouchableOpacity>
 
             <Text style={styles.modalSecureText}>
@@ -777,7 +793,6 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   finalTotalGradient: {
-    backgroundColor: 'rgba(255, 203, 187, 0.5)',
     borderRadius: 10,
     marginTop: 12,
     paddingVertical: 10,
@@ -791,13 +806,13 @@ const styles = StyleSheet.create({
   finalTotalLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#2C2C2C',
+    color: '#FFFFFF',
     fontFamily: 'Poppins-SemiBold',
   },
   finalTotalPrice: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#2C2C2C',
+    color: '#FFFFFF',
   },
   payButton: {
     marginTop: 16,
@@ -874,11 +889,13 @@ const styles = StyleSheet.create({
     width: '48%',
   },
   modalSaveBtn: {
-    backgroundColor: '#FF147A',
-    paddingVertical: 12,
     borderRadius: 10,
-    alignItems: 'center',
+    overflow: 'hidden',
     marginTop: 10,
+  },
+  modalSaveGradient: {
+    paddingVertical: 12,
+    alignItems: 'center',
   },
   modalSaveBtnText: {
     color: '#fff',

@@ -27,24 +27,27 @@ export default function ProductDetailScreen({ route, navigation }) {
 
   const loadProduct = async () => {
     const data = await getProductById(productId);
-    console.log('Product data:', data);
     setProduct(data);
     setLoading(false);
   };
 
+  const showGradientAlert = (title, message) => {
+    Alert.alert(title, message, [{ text: 'OK' }]);
+  };
+
   const handleAddToCart = async () => {
     if (!userId) {
-      Alert.alert('Ошибка', 'Пожалуйста, войдите в аккаунт');
+      showGradientAlert('Ошибка', 'Пожалуйста, войдите в аккаунт');
       navigation.navigate('Login');
       return;
     }
     await addToCart(userId, product.product_id, 1, null);
-    Alert.alert('Добавлено', `${product.name} добавлен в корзину`);
+    showGradientAlert('Добавлено', `${product.name} добавлен в корзину`);
   };
 
   const handleCustomize = () => {
     if (!userId) {
-      Alert.alert('Ошибка', 'Пожалуйста, войдите в аккаунт');
+      showGradientAlert('Ошибка', 'Пожалуйста, войдите в аккаунт');
       navigation.navigate('Login');
       return;
     }
@@ -82,10 +85,12 @@ export default function ProductDetailScreen({ route, navigation }) {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <Image 
-        source={imageSource} 
-        style={styles.image} 
-      />
+      {/* Заголовок Детали товара */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Детали товара</Text>
+      </View>
+
+      <Image source={imageSource} style={styles.image} />
       
       <View style={styles.content}>
         <Text style={styles.name}>{product.name}</Text>
@@ -101,7 +106,7 @@ export default function ProductDetailScreen({ route, navigation }) {
         
         <Text style={styles.price}>{Math.round(finalPrice)} ₽</Text>
         
-        {/* ПОЛНОЕ ОПИСАНИЕ - весь текст из БД */}
+        {/* ПОЛНОЕ описание - весь текст из БД */}
         <Text style={styles.description}>
           {product.description || 'Описание отсутствует'}
         </Text>
@@ -137,9 +142,9 @@ export default function ProductDetailScreen({ route, navigation }) {
               colors={['#FFBCD9', '#FFCBBB']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
-              style={styles.customizeGradientBorder}
+              style={styles.customizeButton}
             >
-              <TouchableOpacity style={styles.customizeButton} onPress={handleCustomize}>
+              <TouchableOpacity style={styles.customizeInner} onPress={handleCustomize}>
                 <Text style={styles.customizeButtonText}>Настроить</Text>
               </TouchableOpacity>
             </LinearGradient>
@@ -154,6 +159,18 @@ const styles = StyleSheet.create({
   container: { 
     flex: 1, 
     backgroundColor: '#fff' 
+  },
+  header: {
+    backgroundColor: '#FFBCD9',
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+    fontFamily: 'Poppins-SemiBold',
+    textAlign: 'center',
   },
   center: { 
     flex: 1, 
@@ -173,12 +190,12 @@ const styles = StyleSheet.create({
     padding: 16 
   },
   name: { 
-    fontSize: 22, 
-    fontWeight: 'bold', 
+    fontSize: 18, 
+    fontWeight: '600', 
     color: '#2C2C2C', 
     marginBottom: 8,
     textAlign: 'center',
-    fontFamily: 'Poppins-Bold',
+    fontFamily: 'Poppins-SemiBold',
   },
   discountRow: { 
     flexDirection: 'row', 
@@ -200,12 +217,13 @@ const styles = StyleSheet.create({
   },
   discountText: { 
     color: '#FF147A', 
-    fontWeight: 'bold',
+    fontWeight: '600',
     fontSize: 12,
+    fontFamily: 'Poppins-SemiBold',
   },
   price: { 
-    fontSize: 24, 
-    fontWeight: 'bold', 
+    fontSize: 22, 
+    fontWeight: '700', 
     color: '#2C2C2C', 
     marginBottom: 16,
     textAlign: 'center',
@@ -225,7 +243,7 @@ const styles = StyleSheet.create({
   },
   infoLabel: { 
     fontSize: 14, 
-    fontWeight: 'bold', 
+    fontWeight: '600', 
     color: '#555', 
     width: 100,
     fontFamily: 'Poppins-SemiBold',
@@ -250,16 +268,16 @@ const styles = StyleSheet.create({
   },
   buttonText: { 
     color: '#fff', 
-    fontWeight: 'bold', 
+    fontWeight: '600', 
     fontSize: 14,
     fontFamily: 'Poppins-SemiBold',
   },
-  customizeGradientBorder: {
+  customizeButton: {
     flex: 1,
     borderRadius: 8,
     padding: 2,
   },
-  customizeButton: { 
+  customizeInner: {
     backgroundColor: '#fff',
     padding: 12,
     borderRadius: 6,
@@ -267,7 +285,7 @@ const styles = StyleSheet.create({
   },
   customizeButtonText: { 
     color: '#FF147A', 
-    fontWeight: 'bold', 
+    fontWeight: '600', 
     fontSize: 14,
     fontFamily: 'Poppins-SemiBold',
   },
