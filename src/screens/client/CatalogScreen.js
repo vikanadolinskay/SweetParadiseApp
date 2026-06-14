@@ -14,7 +14,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { getProducts, addToCart, getBanners, getCartItems } from '../../services/database';
+import { getProducts, addToCart, getBanners, getCartItems, updateCartQuantity, removeFromCart } from '../../services/database';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { showGradientAlert } from '../../components/GradientAlert';
@@ -60,6 +60,7 @@ export default function CatalogScreen({ navigation }) {
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [userId, setUserId] = useState(null);
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
+  const [cartItems, setCartItems] = useState({});
   const flatListRef = useRef(null);
   const autoScrollInterval = useRef(null);
 
@@ -78,14 +79,15 @@ export default function CatalogScreen({ navigation }) {
   ];
 
   useEffect(() => {
-    const getUserId = async () => {
+    const getUserIdAndCart = async () => {
       const userStr = await AsyncStorage.getItem('user');
       if (userStr) {
         const user = JSON.parse(userStr);
         setUserId(user.user_id);
+        await loadCartItems(user.user_id);
       }
     };
-    getUserId();
+    getUserIdAndCart();
     loadBanners();
     loadProducts();
   }, []);
@@ -117,6 +119,15 @@ export default function CatalogScreen({ navigation }) {
       clearInterval(autoScrollInterval.current);
       autoScrollInterval.current = null;
     }
+  };
+
+  const loadCartItems = async (uid) => {
+    const items = await getCartItems(uid);
+    const cartMap = {};
+    items.forEach(item => {
+      cartMap[item.product_id] = item.quantity;
+    });
+    setCartItems(cartMap);
   };
 
   const loadBanners = async () => {
@@ -169,10 +180,11 @@ export default function CatalogScreen({ navigation }) {
     clearCache();
     await loadProducts();
     await loadBanners();
+    if (userId) await loadCartItems(userId);
     setRefreshing(false);
-  }, []);
+  }, [userId]);
 
-  const handleAddToCart = async (product) => {
+  const updateCartItemQuantity = async (product, delta) => {
     if (!userId) {
       showGradientAlert({ 
         title: 'Ошибка', 
@@ -181,18 +193,24 @@ export default function CatalogScreen({ navigation }) {
       navigation.navigate('Login');
       return;
     }
-    
-    try {
-      await addToCart(userId, product.product_id, 1, null);
-      showGradientAlert({ 
-        title: 'Добавлено', 
-        message: `${product.name} добавлен в корзину` 
+
+    const currentQuantity = cartItems[product.product_id] || 0;
+    const newQuantity = currentQuantity + delta;
+
+    if (newQuantity < 1) {
+      const items = await getCartItems(userId);
+      const cartItem = items.find(item => item.product_id === product.product_id);
+      if (cartItem) {
+        await removeFromCart(cartItem.cart_item_id);
+      }
+      setCartItems(prev => {
+        const newCart = { ...prev };
+        delete newCart[product.product_id];
+        return newCart;
       });
-    } catch (error) {
-      showGradientAlert({ 
-        title: 'Ошибка', 
-        message: 'Не удалось добавить товар в корзину' 
-      });
+    } else {
+      await addToCart(userId, product.product_id, delta, null);
+      setCartItems(prev => ({ ...prev, [product.product_id]: newQuantity }));
     }
   };
 
@@ -217,6 +235,7 @@ export default function CatalogScreen({ navigation }) {
   const renderProduct = ({ item }) => {
     const imageSource = item.image_source || { uri: 'https://via.placeholder.com/150?text=No+Image' };
     const shortDescription = getFirstSentence(item.description);
+    const quantity = cartItems[item.product_id] || 0;
 
     return (
       <TouchableOpacity
@@ -238,11 +257,21 @@ export default function CatalogScreen({ navigation }) {
             <Text style={styles.calories}>{item.calories || 0} ккал</Text>
           </View>
           
-          <Text style={styles.price}>{item.price} ₽</Text>
-          
-          <TouchableOpacity onPress={() => handleAddToCart(item)}>
-            <Text style={styles.addButtonText}>+</Text>
-          </TouchableOpacity>
+          <View style={styles.quantityRow}>
+            {quantity > 0 && (
+              <TouchableOpacity style={styles.qtyButton} onPress={() => updateCartItemQuantity(item, -1)}>
+                <Text style={styles.qtyButtonText}>-</Text>
+              </TouchableOpacity>
+            )}
+            
+            {quantity > 0 && (
+              <Text style={styles.quantityText}>{quantity}</Text>
+            )}
+            
+            <TouchableOpacity style={styles.qtyButton} onPress={() => updateCartItemQuantity(item, 1)}>
+              <Text style={styles.qtyButtonText}>+</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </TouchableOpacity>
     );
@@ -278,7 +307,7 @@ export default function CatalogScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      {/* Розовый верх с поиском - без стрелки */}
+      {/* Розовый верх с поиском */}
       <LinearGradient
         colors={['#FFBCD9', '#FFCBBB']}
         start={{ x: 0, y: 0 }}
@@ -553,18 +582,34 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     fontFamily: 'Poppins-Regular',
   },
-  price: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#2C2C2C',
-    textAlign: 'center',
-    marginBottom: 10,
-    fontFamily: 'Poppins-Bold',
+  quantityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
   },
-  addButtonText: {
+  qtyButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#FF147A',
+    backgroundColor: 'transparent',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 8,
+  },
+  qtyButtonText: {
     color: '#FF147A',
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: 'bold',
+  },
+  quantityText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2C2C2C',
+    minWidth: 20,
+    textAlign: 'center',
   },
   center: {
     flex: 1,

@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   Image,
   TextInput,
-  Alert,
   Modal,
   ActivityIndicator,
 } from 'react-native';
@@ -16,7 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
-import { getUserById, updateUserProfile } from '../../services/database';
+import { getUserById, updateUserProfile, deleteUserAccount } from '../../services/database';
 import { showGradientAlert, showGradientConfirm } from '../../components/GradientAlert';
 import QRCode from 'react-native-qrcode-svg';
 
@@ -36,6 +35,16 @@ export default function ProfileScreen({ navigation }) {
   const [loyaltyPoints, setLoyaltyPoints] = useState(0);
   const [personalDiscount, setPersonalDiscount] = useState(0);
   const [pointsToSpend, setPointsToSpend] = useState(0);
+  
+  // Выпадающий список для точки самовывоза
+  const [showPickupModal, setShowPickupModal] = useState(false);
+  const [selectedPickup, setSelectedPickup] = useState('г. Таганрог, ул. Петровская 711');
+  
+  const pickupAddresses = [
+    'г. Таганрог, ул. Петровская 711',
+    'г. Таганрог, ул. Чехова 22',
+    'г. Таганрог, пер. Итальянский 5',
+  ];
 
   useEffect(() => {
     loadUserData();
@@ -106,12 +115,17 @@ export default function ProfileScreen({ navigation }) {
       title: 'Удаление профиля',
       message: 'Вы уверены, что хотите удалить профиль? Это действие необратимо.',
       onConfirm: async () => {
-        // Логика удаления профиля
-        await AsyncStorage.clear();
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Login' }],
-        });
+        try {
+          // Здесь будет API для удаления пользователя
+          await AsyncStorage.clear();
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Login' }],
+          });
+          showGradientAlert({ title: 'Успешно', message: 'Профиль удалён' });
+        } catch (error) {
+          showGradientAlert({ title: 'Ошибка', message: 'Не удалось удалить профиль' });
+        }
       },
     });
   };
@@ -182,6 +196,10 @@ export default function ProfileScreen({ navigation }) {
   };
 
   const handleSpendPoints = () => {
+    if (loyaltyPoints === 0) {
+      showGradientAlert({ title: 'Ошибка', message: 'У вас 0 баллов. Списание невозможно' });
+      return;
+    }
     if (pointsToSpend <= 0) {
       showGradientAlert({ title: 'Ошибка', message: 'Введите количество баллов для списания' });
       return;
@@ -198,7 +216,6 @@ export default function ProfileScreen({ navigation }) {
         const newPoints = loyaltyPoints - pointsToSpend;
         setLoyaltyPoints(newPoints);
         setPointsToSpend(0);
-        // Здесь будет API для обновления баллов
         showGradientAlert({ title: 'Успешно', message: `Списано ${pointsToSpend} баллов` });
       },
     });
@@ -256,7 +273,9 @@ export default function ProfileScreen({ navigation }) {
             </View>
           </TouchableOpacity>
           <Text style={styles.userName}>{user?.full_name}</Text>
-          <Text style={styles.userAddress}>г. Таганрог, ул. Пушкинская, 111</Text>
+          <TouchableOpacity onPress={() => setShowPickupModal(true)}>
+            <Text style={styles.userAddress}>{selectedPickup}</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Информация о пользователе */}
@@ -331,9 +350,9 @@ export default function ProfileScreen({ navigation }) {
         {/* Данные карты */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Данные карты</Text>
-          <Text style={styles.cardNumber}>7 010 576 000 000</Text>
+          <Text style={styles.cardNumberSmall}>7 010 576 000 000</Text>
           <Text style={styles.cardLabel}>Номер карты</Text>
-          <Text style={styles.cardValue}>7010576</Text>
+          <Text style={styles.cardValueSmall}>7010576</Text>
         </View>
 
         {/* Карта лояльности */}
@@ -383,6 +402,38 @@ export default function ProfileScreen({ navigation }) {
         </TouchableOpacity>
       </ScrollView>
 
+      {/* Модальное окно выбора точки самовывоза */}
+      <Modal
+        transparent={true}
+        visible={showPickupModal}
+        animationType="fade"
+        onRequestClose={() => setShowPickupModal(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1} 
+          onPress={() => setShowPickupModal(false)}
+        >
+          <View style={styles.pickupModal}>
+            <Text style={styles.pickupModalTitle}>Выберите точку самовывоза</Text>
+            {pickupAddresses.map((address) => (
+              <TouchableOpacity
+                key={address}
+                style={[styles.pickupOption, selectedPickup === address && styles.pickupOptionActive]}
+                onPress={() => {
+                  setSelectedPickup(address);
+                  setShowPickupModal(false);
+                }}
+              >
+                <Text style={[styles.pickupOptionText, selectedPickup === address && styles.pickupOptionTextActive]}>
+                  {address}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
       {/* Модальное окно выбора фото */}
       <Modal
         transparent={true}
@@ -424,7 +475,8 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: '#FFFFFF',
-    paddingVertical: 12,
+    paddingTop: 48,
+    paddingBottom: 16,
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -436,7 +488,7 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   headerTitle: {
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: '600',
     color: '#FF147A',
     fontFamily: 'Poppins-SemiBold',
@@ -491,12 +543,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#2C2C2C',
     marginTop: 12,
+    textAlign: 'center',
     fontFamily: 'Poppins-SemiBold',
   },
   userAddress: {
-    fontSize: 12,
-    color: '#999',
+    fontSize: 14,
+    color: '#FF147A',
     marginTop: 4,
+    textAlign: 'center',
     fontFamily: 'Poppins-Regular',
   },
   section: {
@@ -609,8 +663,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Poppins-SemiBold',
   },
-  cardNumber: {
-    fontSize: 24,
+  cardNumberSmall: {
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#2C2C2C',
     fontFamily: 'Poppins-Bold',
@@ -621,8 +675,8 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontFamily: 'Poppins-Regular',
   },
-  cardValue: {
-    fontSize: 16,
+  cardValueSmall: {
+    fontSize: 14,
     color: '#2C2C2C',
     marginTop: 4,
     fontFamily: 'Poppins-Regular',
@@ -731,6 +785,38 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  pickupModal: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    width: '85%',
+  },
+  pickupModalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#FF147A',
+    textAlign: 'center',
+    marginBottom: 16,
+    fontFamily: 'Poppins-SemiBold',
+  },
+  pickupOption: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 8,
+    backgroundColor: '#F5F5F5',
+  },
+  pickupOptionActive: {
+    backgroundColor: '#FF147A',
+  },
+  pickupOptionText: {
+    fontSize: 14,
+    color: '#333',
+    fontFamily: 'Poppins-Regular',
+  },
+  pickupOptionTextActive: {
+    color: '#fff',
   },
   avatarMenu: {
     backgroundColor: '#fff',

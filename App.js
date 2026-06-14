@@ -1,11 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { SafeAreaView, StatusBar, View, ActivityIndicator, Text } from 'react-native';
-import AppNavigator from './src/navigation';  // Этот путь правильный
+import AppNavigator from './src/navigation';
+import GradientToast from './src/components/GradientToast';
+import GradientAlertProvider from './src/components/GradientAlert';
+import GradientConfirmProvider from './src/components/GradientConfirm';
 import { initDatabase } from './src/services/database';
 
 export default function App() {
   const [dbReady, setDbReady] = useState(false);
   const [error, setError] = useState(null);
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
 
   useEffect(() => {
     const setupDatabase = async () => {
@@ -22,6 +27,12 @@ export default function App() {
 
     setupDatabase();
   }, []);
+
+  // Функция для показа тоста из любого места
+  window.showToast = (message) => {
+    setToastMessage(message);
+    setToastVisible(true);
+  };
 
   if (!dbReady && !error) {
     return (
@@ -41,11 +52,18 @@ export default function App() {
   }
 
   return (
-    <>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
-        <AppNavigator />
-      </SafeAreaView>
-    </>
+    <GradientAlertProvider>
+      <GradientConfirmProvider>
+        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
+          <AppNavigator />
+        </SafeAreaView>
+        <GradientToast 
+          visible={toastVisible} 
+          message={toastMessage} 
+          onHide={() => setToastVisible(false)} 
+        />
+      </GradientConfirmProvider>
+    </GradientAlertProvider>
   );
 }
