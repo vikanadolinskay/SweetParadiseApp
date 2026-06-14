@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { showGradientAlert } from '../../components/GradientAlert';
 
 const shapes = [
   { id: 'round', name: 'Круглый', price: 0 },
@@ -16,7 +17,10 @@ export default function CustomizeScreen1({ route, navigation }) {
 
   const handleNext = () => {
     if (!selected) {
-      alert('Выберите форму');
+      showGradientAlert({ 
+        title: 'Ошибка', 
+        message: 'Выберите форму' 
+      });
       return;
     }
     navigation.navigate('Customize2', {

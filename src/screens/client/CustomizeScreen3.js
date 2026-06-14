@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { showGradientAlert } from '../../components/GradientAlert';
 
 const fillings = [
   { id: 'chocolate', name: 'Шоколадный ганаш', price: 300 },
@@ -17,7 +18,10 @@ export default function CustomizeScreen3({ route, navigation }) {
 
   const handleNext = () => {
     if (!selected) {
-      alert('Выберите начинку');
+      showGradientAlert({ 
+        title: 'Ошибка', 
+        message: 'Выберите начинку' 
+      });
       return;
     }
     navigation.navigate('Customize4', {

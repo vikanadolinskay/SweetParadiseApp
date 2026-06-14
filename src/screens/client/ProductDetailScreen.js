@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, Image, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getProductById, addToCart } from '../../services/database';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { showGradientAlert } from '../../components/GradientAlert';
 
 export default function ProductDetailScreen({ route, navigation }) {
   const { productId } = route.params;
@@ -34,17 +35,26 @@ export default function ProductDetailScreen({ route, navigation }) {
 
   const handleAddToCart = async () => {
     if (!userId) {
-      Alert.alert('Ошибка', 'Пожалуйста, войдите в аккаунт');
+      showGradientAlert({ 
+        title: 'Ошибка', 
+        message: 'Пожалуйста, войдите в аккаунт' 
+      });
       navigation.navigate('Login');
       return;
     }
     await addToCart(userId, product.product_id, 1, null);
-    Alert.alert('Добавлено', `${product.name} добавлен в корзину`);
+    showGradientAlert({ 
+      title: 'Добавлено', 
+      message: `${product.name} добавлен в корзину` 
+    });
   };
 
   const handleCustomize = () => {
     if (!userId) {
-      Alert.alert('Ошибка', 'Пожалуйста, войдите в аккаунт');
+      showGradientAlert({ 
+        title: 'Ошибка', 
+        message: 'Пожалуйста, войдите в аккаунт' 
+      });
       navigation.navigate('Login');
       return;
     }
@@ -111,10 +121,10 @@ export default function ProductDetailScreen({ route, navigation }) {
           {product.description || 'Описание отсутствует'}
         </Text>
         
+        {/* Калорийность в одну строку */}
         {product.calories && (
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Калорийность:</Text>
-            <Text style={styles.infoValue}>{product.calories} ккал</Text>
+          <View style={styles.caloriesContainer}>
+            <Text style={styles.caloriesText}>Калорийность: {product.calories} ккал</Text>
           </View>
         )}
         
@@ -239,22 +249,16 @@ const styles = StyleSheet.create({
     textAlign: 'justify',
     fontFamily: 'Poppins-Regular',
   },
-  infoRow: { 
-    flexDirection: 'row', 
-    marginBottom: 8 
+  caloriesContainer: {
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  infoLabel: { 
-    fontSize: 14, 
-    fontWeight: '600', 
-    color: '#555', 
-    width: 100,
-    fontFamily: 'Poppins-SemiBold',
-  },
-  infoValue: { 
-    fontSize: 14, 
-    color: '#666', 
-    flex: 1,
-    fontFamily: 'Poppins-Regular',
+  caloriesText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#666',
+    fontFamily: 'Poppins-Medium',
+    textAlign: 'center',
   },
   buttons: { 
     flexDirection: 'row', 

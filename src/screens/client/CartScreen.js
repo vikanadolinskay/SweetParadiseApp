@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  Alert,
   Image,
   TextInput,
   ScrollView,
@@ -17,6 +16,8 @@ import { getCartItems, removeFromCart, updateCartQuantity } from '../../services
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { showGradientAlert } from '../../components/GradientAlert';
+import { showGradientConfirm } from '../../components/GradientConfirm';
 
 export default function CartScreen({ navigation }) {
   const [cart, setCart] = useState([]);
@@ -90,26 +91,15 @@ export default function CartScreen({ navigation }) {
     return parts.length > 0 ? parts.join(' • ') : null;
   };
 
-  const showGradientAlert = (title, message, onOk) => {
-    Alert.alert(title, message, [{ text: 'OK', onPress: onOk }]);
-  };
-
   const handleRemove = (cartItemId, productName) => {
-    Alert.alert(
-      'Удаление',
-      'Удалить товар из корзины?',
-      [
-        { text: 'Отмена', style: 'cancel' },
-        {
-          text: 'Удалить',
-          onPress: async () => {
-            await removeFromCart(cartItemId);
-            loadCart();
-          },
-        },
-      ],
-      { cancelable: true }
-    );
+    showGradientConfirm({
+      title: 'Удаление',
+      message: 'Удалить товар из корзины?',
+      onConfirm: async () => {
+        await removeFromCart(cartItemId);
+        loadCart();
+      },
+    });
   };
 
   const handleUpdateQuantity = async (cartItemId, productId, newQuantity) => {
@@ -124,13 +114,13 @@ export default function CartScreen({ navigation }) {
     if (promoCode.toLowerCase() === 'sweet2026') {
       setDiscount(10);
       setPromoApplied(true);
-      showGradientAlert('Успешно', 'Промокод применён! Скидка 10%');
+      showGradientAlert({ title: 'Успешно', message: 'Промокод применён! Скидка 10%' });
     } else if (promoCode.toLowerCase() === 'welcome') {
       setDiscount(5);
       setPromoApplied(true);
-      showGradientAlert('Успешно', 'Промокод применён! Скидка 5%');
+      showGradientAlert({ title: 'Успешно', message: 'Промокод применён! Скидка 5%' });
     } else {
-      showGradientAlert('Ошибка', 'Неверный промокод');
+      showGradientAlert({ title: 'Ошибка', message: 'Неверный промокод' });
     }
   };
 
@@ -143,9 +133,9 @@ export default function CartScreen({ navigation }) {
       });
       setPaymentMethod('card');
       setShowPaymentModal(false);
-      showGradientAlert('Успешно', 'Карта сохранена');
+      showGradientAlert({ title: 'Успешно', message: 'Карта сохранена' });
     } else {
-      showGradientAlert('Ошибка', 'Заполните все поля карты');
+      showGradientAlert({ title: 'Ошибка', message: 'Заполните все поля карты' });
     }
   };
 
@@ -172,7 +162,7 @@ export default function CartScreen({ navigation }) {
 
   const handleProceedToCheckout = () => {
     if (cart.length === 0) {
-      showGradientAlert('Корзина пуста', 'Добавьте товары в корзину');
+      showGradientAlert({ title: 'Корзина пуста', message: 'Добавьте товары в корзину' });
       return;
     }
     

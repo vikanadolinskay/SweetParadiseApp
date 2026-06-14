@@ -60,7 +60,6 @@ export default function CatalogScreen({ navigation }) {
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [userId, setUserId] = useState(null);
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
-  const [cartCount, setCartCount] = useState(0);
   const flatListRef = useRef(null);
   const autoScrollInterval = useRef(null);
 
@@ -79,15 +78,14 @@ export default function CatalogScreen({ navigation }) {
   ];
 
   useEffect(() => {
-    const getUserIdAndCart = async () => {
+    const getUserId = async () => {
       const userStr = await AsyncStorage.getItem('user');
       if (userStr) {
         const user = JSON.parse(userStr);
         setUserId(user.user_id);
-        loadCartCount(user.user_id);
       }
     };
-    getUserIdAndCart();
+    getUserId();
     loadBanners();
     loadProducts();
   }, []);
@@ -119,12 +117,6 @@ export default function CatalogScreen({ navigation }) {
       clearInterval(autoScrollInterval.current);
       autoScrollInterval.current = null;
     }
-  };
-
-  const loadCartCount = async (uid) => {
-    const items = await getCartItems(uid);
-    const count = items.reduce((sum, item) => sum + item.quantity, 0);
-    setCartCount(count);
   };
 
   const loadBanners = async () => {
@@ -177,9 +169,8 @@ export default function CatalogScreen({ navigation }) {
     clearCache();
     await loadProducts();
     await loadBanners();
-    if (userId) await loadCartCount(userId);
     setRefreshing(false);
-  }, [userId]);
+  }, []);
 
   const handleAddToCart = async (product) => {
     if (!userId) {
@@ -190,7 +181,6 @@ export default function CatalogScreen({ navigation }) {
     
     try {
       await addToCart(userId, product.product_id, 1, null);
-      await loadCartCount(userId);
       Alert.alert('Добавлено', `${product.name} добавлен в корзину`);
     } catch (error) {
       Alert.alert('Ошибка', 'Не удалось добавить товар в корзину');
@@ -235,11 +225,7 @@ export default function CatalogScreen({ navigation }) {
             </Text>
           )}
           
-          <View style={styles.caloriesRow}>
-            {item.calories && item.calories > 0 && (
-              <Text style={styles.calories}>{item.calories} ккал</Text>
-            )}
-          </View>
+          <Text style={styles.calories}>{item.calories || 0} ккал</Text>
           
           <View style={styles.bottomRow}>
             <Text style={styles.price}>{item.price} ₽</Text>
@@ -282,17 +268,15 @@ export default function CatalogScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
+      {/* Розовый верх с поиском - без стрелки */}
       <LinearGradient
         colors={['#FFBCD9', '#FFCBBB']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.header}
       >
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#333" />
-        </TouchableOpacity>
         <View style={styles.searchContainer}>
-          <Ionicons name="search" size={18} color="#999" style={styles.searchIcon} />
+          <Ionicons name="search" size={20} color="#999" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             placeholder="Поиск"
@@ -302,10 +286,11 @@ export default function CatalogScreen({ navigation }) {
           />
         </View>
         <TouchableOpacity style={styles.filterButton} onPress={() => setShowSortMenu(true)}>
-          <Ionicons name="options-outline" size={20} color="#333" />
+          <Ionicons name="options-outline" size={24} color="#333" />
         </TouchableOpacity>
       </LinearGradient>
 
+      {/* Баннеры */}
       {banners.length > 0 && (
         <View style={styles.bannerWrapper}>
           <FlatList
@@ -339,6 +324,7 @@ export default function CatalogScreen({ navigation }) {
         </View>
       )}
 
+      {/* Категории */}
       <FlatList
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -348,6 +334,7 @@ export default function CatalogScreen({ navigation }) {
         contentContainerStyle={styles.categoriesList}
       />
 
+      {/* Список товаров - сетка 2 колонки */}
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.product_id?.toString() || item.id?.toString()}
@@ -365,13 +352,6 @@ export default function CatalogScreen({ navigation }) {
           </View>
         }
       />
-
-      {/* Индикатор количества в корзине */}
-      {cartCount > 0 && (
-        <View style={styles.cartBadge}>
-          <Text style={styles.cartBadgeText}>{cartCount}</Text>
-        </View>
-      )}
 
       <Modal
         animationType="fade"
@@ -425,10 +405,6 @@ const styles = StyleSheet.create({
     paddingTop: 48,
     paddingBottom: 12,
   },
-  backButton: {
-    padding: 4,
-    marginRight: 8,
-  },
   searchContainer: {
     flex: 1,
     flexDirection: 'row',
@@ -436,21 +412,21 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.6)',
     borderRadius: 12,
     paddingHorizontal: 12,
-    height: 40,
+    height: 44,
   },
   searchIcon: {
     marginRight: 8,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 16,
     color: '#333',
     paddingVertical: 8,
     fontFamily: 'Poppins-Regular',
   },
   filterButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 12,
@@ -493,21 +469,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#CCCCCC',
   },
   categoriesList: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     paddingVertical: 12,
   },
   categoryChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 20,
     backgroundColor: '#F0F0F0',
-    marginRight: 8,
+    marginRight: 10,
   },
   categoryChipActive: {
     backgroundColor: '#FF147A',
   },
   categoryText: {
-    fontSize: 13,
+    fontSize: 14,
     color: '#666',
     fontWeight: '500',
     fontFamily: 'Poppins-Medium',
@@ -537,10 +513,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F8F8',
   },
   cardContent: {
-    padding: 10,
+    padding: 12,
   },
   name: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     color: '#2C2C2C',
     marginBottom: 6,
@@ -548,51 +524,43 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-SemiBold',
   },
   description: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#666',
-    lineHeight: 14,
-    marginBottom: 4,
+    lineHeight: 16,
+    marginBottom: 6,
     textAlign: 'center',
     fontFamily: 'Poppins-Regular',
   },
-  caloriesRow: {
-    alignItems: 'flex-end',
-    marginBottom: 6,
-  },
   calories: {
-    fontSize: 10,
+    fontSize: 12,
     color: '#999',
-    textAlign: 'right',
+    textAlign: 'center',
+    marginBottom: 8,
     fontFamily: 'Poppins-Regular',
   },
   bottomRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 4,
   },
   price: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
     color: '#2C2C2C',
-    fontFamily: 'Poppins-SemiBold',
-    textAlign: 'center',
+    fontFamily: 'Poppins-Bold',
   },
   addButton: {
-    position: 'absolute',
-    right: 0,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#FFBCD9',
-    borderWidth: 1.5,
-    borderColor: '#FF147A',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FF147A',
     justifyContent: 'center',
     alignItems: 'center',
   },
   addButtonText: {
-    color: '#FF147A',
-    fontSize: 16,
+    color: '#FFFFFF',
+    fontSize: 18,
     fontWeight: 'bold',
   },
   center: {
@@ -613,22 +581,6 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
     color: '#999',
-  },
-  cartBadge: {
-    position: 'absolute',
-    bottom: 70,
-    right: 20,
-    backgroundColor: '#FF147A',
-    borderRadius: 12,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    minWidth: 20,
-    alignItems: 'center',
-  },
-  cartBadgeText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: 'bold',
   },
   modalOverlay: {
     flex: 1,

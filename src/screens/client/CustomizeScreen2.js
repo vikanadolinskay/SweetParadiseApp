@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { showGradientAlert } from '../../components/GradientAlert';
 
 const sizes = [
   { id: 'small', name: 'Маленький (1-2 кг)', price: 0, kg: 1.5 },
@@ -16,7 +17,10 @@ export default function CustomizeScreen2({ route, navigation }) {
 
   const handleNext = () => {
     if (!selected) {
-      alert('Выберите размер');
+      showGradientAlert({ 
+        title: 'Ошибка', 
+        message: 'Выберите размер' 
+      });
       return;
     }
     navigation.navigate('Customize3', {

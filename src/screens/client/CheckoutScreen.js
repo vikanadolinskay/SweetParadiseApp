@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
   ActivityIndicator,
   Modal,
 } from 'react-native';
@@ -15,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { createOrder } from '../../services/database';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { showGradientAlert } from '../../components/GradientAlert';
 
 export default function CheckoutScreen({ route, navigation }) {
   const { total, cart, pickupAddress: savedAddress, paymentMethod: savedPaymentMethod, savedCard: savedCardData } = route.params;
@@ -54,7 +54,10 @@ export default function CheckoutScreen({ route, navigation }) {
         const user = JSON.parse(userStr);
         setUserId(user.user_id);
       } else {
-        Alert.alert('Ошибка', 'Пожалуйста, войдите в аккаунт');
+        showGradientAlert({ 
+          title: 'Ошибка', 
+          message: 'Пожалуйста, войдите в аккаунт' 
+        });
         navigation.navigate('Login');
       }
     };
@@ -113,7 +116,10 @@ export default function CheckoutScreen({ route, navigation }) {
 
   const handleSubmitOrder = async () => {
     if (!userId) {
-      Alert.alert('Ошибка', 'Пожалуйста, войдите в аккаунт');
+      showGradientAlert({ 
+        title: 'Ошибка', 
+        message: 'Пожалуйста, войдите в аккаунт' 
+      });
       navigation.navigate('Login');
       return;
     }
@@ -189,7 +195,10 @@ export default function CheckoutScreen({ route, navigation }) {
       setShowPaymentModal(false);
       handleSubmitOrder();
     } else {
-      Alert.alert('Ошибка', 'Заполните все поля карты');
+      showGradientAlert({ 
+        title: 'Ошибка', 
+        message: 'Заполните все поля карты' 
+      });
     }
   };
 

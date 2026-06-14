@@ -13,6 +13,7 @@ import {
 import { getBanners } from '../services/database';
 
 const { width: screenWidth } = Dimensions.get('window');
+const BANNER_WIDTH = screenWidth - 32;
 
 // Кэш для баннеров
 let bannersCache = null;
@@ -107,7 +108,7 @@ export default function BannerCarousel({ navigation, onBannerPress }) {
   };
 
   const renderBanner = ({ item }) => {
-    const imageUrl = item.image_url || 'https://via.placeholder.com/800x400?text=Banner';
+    const imageSource = item.image_source || { uri: item.image_url || 'https://via.placeholder.com/800x400?text=Banner' };
     
     return (
       <TouchableOpacity
@@ -116,21 +117,10 @@ export default function BannerCarousel({ navigation, onBannerPress }) {
         activeOpacity={0.9}
       >
         <Image
-          source={{ uri: imageUrl }}
+          source={imageSource}
           style={styles.bannerImage}
           resizeMode="cover"
         />
-        {(item.title || item.subtitle) && (
-          <View style={styles.bannerOverlay}>
-            {item.title && <Text style={styles.bannerTitle}>{item.title}</Text>}
-            {item.subtitle && <Text style={styles.bannerSubtitle}>{item.subtitle}</Text>}
-            {item.button_text && (
-              <View style={styles.bannerButton}>
-                <Text style={styles.bannerButtonText}>{item.button_text}</Text>
-              </View>
-            )}
-          </View>
-        )}
       </TouchableOpacity>
     );
   };
@@ -151,7 +141,7 @@ export default function BannerCarousel({ navigation, onBannerPress }) {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="small" color="#FF69B4" />
+        <ActivityIndicator size="small" color="#FF147A" />
       </View>
     );
   }
@@ -174,7 +164,6 @@ export default function BannerCarousel({ navigation, onBannerPress }) {
         onScrollBeginDrag={stopAutoScroll}
         onScrollEndDrag={startAutoScroll}
         scrollEventThrottle={16}
-        snapToInterval={screenWidth - 32}
         decelerationRate="fast"
         contentContainerStyle={styles.flatListContent}
       />
@@ -204,7 +193,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   bannerContainer: {
-    width: screenWidth - 32,
+    width: BANNER_WIDTH,
     borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: '#F5F5F5',
@@ -216,41 +205,8 @@ const styles = StyleSheet.create({
   },
   bannerImage: {
     width: '100%',
-    height: 200,
+    height: 180,
     backgroundColor: '#E0E0E0',
-  },
-  bannerOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 20,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  bannerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 4,
-  },
-  bannerSubtitle: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    opacity: 0.9,
-    marginBottom: 8,
-  },
-  bannerButton: {
-    backgroundColor: '#FF69B4',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    alignSelf: 'flex-start',
-    marginTop: 8,
-  },
-  bannerButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 14,
   },
   dotsContainer: {
     flexDirection: 'row',
@@ -266,7 +222,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
   },
   activeDot: {
-    backgroundColor: '#FF69B4',
+    backgroundColor: '#FF147A',
     width: 20,
   },
   inactiveDot: {

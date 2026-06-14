@@ -22,20 +22,15 @@ import CheckoutScreen from '../screens/client/CheckoutScreen';
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
+// Градиентная иконка
 const GradientIcon = ({ name, size, focused }) => {
   const IconComponent = require('react-native-vector-icons/MaterialIcons').default;
   return (
     <LinearGradient
-      colors={focused ? ['#FFBCD9', '#FFCBBB'] : ['#CCCCCC', '#CCCCCC']}
+      colors={['#FFBCD9', '#FFCBBB']}
       start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 0 }}
-      style={{
-        width: size + 10,
-        height: size + 10,
-        borderRadius: (size + 10) / 2,
-        justifyContent: 'center',
-        alignItems: 'center',
-      }}
+      end={{ x: 1, y: 1 }}
+      style={{ padding: 0 }}
     >
       <IconComponent name={name} size={size} color="#fff" />
     </LinearGradient>
@@ -46,27 +41,37 @@ const ClientTabs = () => {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused, color, size }) => {
+        tabBarIcon: ({ focused, size }) => {
           let iconName;
           if (route.name === 'Каталог') iconName = 'menu-book';
           else if (route.name === 'Корзина') iconName = 'shopping-cart';
           else if (route.name === 'Заказы') iconName = 'list-alt';
           else if (route.name === 'Профиль') iconName = 'person';
-          return <GradientIcon name={iconName} size={22} focused={focused} />;
+          
+          // Активная иконка - градиентная, неактивная - серая
+          if (focused) {
+            return <GradientIcon name={iconName} size={24} focused={true} />;
+          } else {
+            const IconComponent = require('react-native-vector-icons/MaterialIcons').default;
+            return <IconComponent name={iconName} size={24} color="#CCCCCC" />;
+          }
         },
         tabBarActiveTintColor: '#FF147A',
-        tabBarInactiveTintColor: '#999',
+        tabBarInactiveTintColor: '#CCCCCC',
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#FFF4F2',
+          backgroundColor: 'rgba(255, 203, 187, 0.5)', // полупрозрачный #FFCBBB
           height: 60,
           paddingBottom: 8,
           paddingTop: 8,
+          borderTopWidth: 0,
+          elevation: 0,
         },
         tabBarLabelStyle: {
           fontSize: 11,
           fontFamily: 'Poppins-Regular',
         },
+        tabBarActiveBackgroundColor: 'rgba(200, 200, 200, 0.3)', // серый прозрачный прямоугольник вокруг активной иконки
       })}
     >
       <Tab.Screen name="Каталог" component={CatalogScreen} />

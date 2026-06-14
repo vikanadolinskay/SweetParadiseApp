@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { addToCart } from '../../services/database';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { showGradientAlert } from '../../components/GradientAlert';
 
 const decors = [
   { id: 'none', name: 'Без декора', price: 0 },
@@ -32,12 +33,18 @@ export default function CustomizeScreen4({ route, navigation }) {
 
   const handleAddToCart = async () => {
     if (!selected) {
-      Alert.alert('Ошибка', 'Выберите декор');
+      showGradientAlert({ 
+        title: 'Ошибка', 
+        message: 'Выберите декор' 
+      });
       return;
     }
     
     if (!userId) {
-      Alert.alert('Ошибка', 'Пожалуйста, войдите в аккаунт');
+      showGradientAlert({ 
+        title: 'Ошибка', 
+        message: 'Пожалуйста, войдите в аккаунт' 
+      });
       navigation.navigate('Login');
       return;
     }
@@ -47,10 +54,16 @@ export default function CustomizeScreen4({ route, navigation }) {
     
     try {
       await addToCart(userId, product.product_id, 1, finalCustomization);
-      Alert.alert('Успешно', 'Товар добавлен в корзину с вашими настройками');
+      showGradientAlert({ 
+        title: 'Успешно', 
+        message: 'Товар добавлен в корзину с вашими настройками' 
+      });
       navigation.popToTop();
     } catch (error) {
-      Alert.alert('Ошибка', 'Не удалось добавить товар в корзину');
+      showGradientAlert({ 
+        title: 'Ошибка', 
+        message: 'Не удалось добавить товар в корзину' 
+      });
     }
   };
 
