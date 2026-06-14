@@ -203,6 +203,15 @@ export default function CheckoutScreen({ route, navigation }) {
 
   return (
     <View style={styles.container}>
+      {/* Заголовок */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="#fff" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Оформление заказа</Text>
+        <View style={styles.placeholder} />
+      </View>
+
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Адрес самовывоза */}
         <View style={styles.section}>
@@ -322,26 +331,38 @@ export default function CheckoutScreen({ route, navigation }) {
         </View>
 
         {/* Итого */}
-        <View style={styles.totalGradient}>
+        <LinearGradient
+          colors={['#FFCBBB', '#FFCBBB']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.totalGradient}
+        >
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Итого:</Text>
             <Text style={styles.totalPrice}>{Math.round(total)} ₽</Text>
           </View>
-        </View>
+        </LinearGradient>
 
-        {/* Кнопка подтверждения */}
+        {/* Кнопка подтверждения - градиентная */}
         <TouchableOpacity
           style={styles.confirmButton}
           onPress={handleSubmitOrder}
           disabled={loading || paymentProcessing}
         >
-          {loading || paymentProcessing ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <Text style={styles.confirmButtonText}>
-              {paymentMethod === 'card' ? 'Подтвердить и оплатить' : 'Подтвердить заказ'}
-            </Text>
-          )}
+          <LinearGradient
+            colors={['#FFBCD9', '#FFCBBB']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.confirmGradient}
+          >
+            {loading || paymentProcessing ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <Text style={styles.confirmButtonText}>
+                {paymentMethod === 'card' ? 'Подтвердить и оплатить' : 'Подтвердить заказ'}
+              </Text>
+            )}
+          </LinearGradient>
         </TouchableOpacity>
       </ScrollView>
 
@@ -412,7 +433,14 @@ export default function CheckoutScreen({ route, navigation }) {
             </View>
 
             <TouchableOpacity style={styles.modalConfirmBtn} onPress={handleSaveCard}>
-              <Text style={styles.modalConfirmText}>Оплатить {Math.round(total)} ₽</Text>
+              <LinearGradient
+                colors={['#FF147A', '#FF69B4']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.modalConfirmGradient}
+              >
+                <Text style={styles.modalConfirmText}>Оплатить {Math.round(total)} ₽</Text>
+              </LinearGradient>
             </TouchableOpacity>
 
             <Text style={styles.modalSecureText}>
@@ -440,7 +468,14 @@ export default function CheckoutScreen({ route, navigation }) {
             </Text>
             <Text style={styles.successAddress}>{pickupAddress}</Text>
             <TouchableOpacity style={styles.successButton} onPress={handleSuccessClose}>
-              <Text style={styles.successButtonText}>В каталог</Text>
+              <LinearGradient
+                colors={['#FFBCD9', '#FFCBBB']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.successGradient}
+              >
+                <Text style={styles.successButtonText}>В каталог</Text>
+              </LinearGradient>
             </TouchableOpacity>
           </View>
         </View>
@@ -459,7 +494,14 @@ export default function CheckoutScreen({ route, navigation }) {
             <Text style={styles.errorTitle}>Ошибка</Text>
             <Text style={styles.errorText}>{errorMessage}</Text>
             <TouchableOpacity style={styles.errorButton} onPress={() => setShowErrorModal(false)}>
-              <Text style={styles.errorButtonText}>OK</Text>
+              <LinearGradient
+                colors={['#FFBCD9', '#FFCBBB']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.errorGradient}
+              >
+                <Text style={styles.errorButtonText}>OK</Text>
+              </LinearGradient>
             </TouchableOpacity>
           </View>
         </View>
@@ -472,6 +514,27 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+  },
+  header: {
+    backgroundColor: '#FFBCD9',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  backButton: {
+    padding: 4,
+  },
+  headerTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+    fontFamily: 'Poppins-SemiBold',
+    textAlign: 'center',
+  },
+  placeholder: {
+    width: 32,
   },
   section: {
     backgroundColor: '#fff',
@@ -605,7 +668,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   totalGradient: {
-    backgroundColor: 'rgba(255, 203, 187, 0.5)',
     borderRadius: 12,
     marginTop: 8,
     marginHorizontal: 16,
@@ -630,11 +692,13 @@ const styles = StyleSheet.create({
     color: '#2C2C2C',
   },
   confirmButton: {
-    backgroundColor: '#FF147A',
     marginHorizontal: 16,
     marginBottom: 30,
-    paddingVertical: 15,
     borderRadius: 12,
+    overflow: 'hidden',
+  },
+  confirmGradient: {
+    paddingVertical: 15,
     alignItems: 'center',
   },
   confirmButtonText: {
@@ -705,11 +769,13 @@ const styles = StyleSheet.create({
     width: '48%',
   },
   modalConfirmBtn: {
-    backgroundColor: '#FF147A',
-    paddingVertical: 12,
     borderRadius: 10,
-    alignItems: 'center',
+    overflow: 'hidden',
     marginTop: 10,
+  },
+  modalConfirmGradient: {
+    paddingVertical: 12,
+    alignItems: 'center',
   },
   modalConfirmText: {
     color: '#fff',
@@ -761,11 +827,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   successButton: {
-    backgroundColor: '#FF147A',
-    paddingVertical: 12,
-    paddingHorizontal: 30,
     borderRadius: 25,
+    overflow: 'hidden',
     width: '100%',
+  },
+  successGradient: {
+    paddingVertical: 12,
     alignItems: 'center',
   },
   successButtonText: {
@@ -800,10 +867,13 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   errorButton: {
-    backgroundColor: '#FF147A',
+    borderRadius: 25,
+    overflow: 'hidden',
+  },
+  errorGradient: {
     paddingVertical: 10,
     paddingHorizontal: 30,
-    borderRadius: 25,
+    alignItems: 'center',
   },
   errorButtonText: {
     color: '#fff',

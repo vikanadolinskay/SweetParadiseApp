@@ -251,9 +251,13 @@ export default function CartScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      {/* Заголовок */}
+      {/* Заголовок со стрелкой назад */}
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="#FF147A" />
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>Корзина</Text>
+        <View style={styles.placeholder} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -373,7 +377,7 @@ export default function CartScreen({ navigation }) {
             </View>
           </View>
 
-          {/* Итого - белым фоном #FFCBBB */}
+          {/* Итого - градиентный фон */}
           <LinearGradient
             colors={['#FFCBBB', '#FFCBBB']}
             start={{ x: 0, y: 0 }}
@@ -386,11 +390,19 @@ export default function CartScreen({ navigation }) {
             </View>
           </LinearGradient>
 
+          {/* Кнопка Оформить заказ - градиентная */}
           <TouchableOpacity 
             style={styles.payButton}
             onPress={handleProceedToCheckout}
           >
-            <Text style={styles.payButtonText}>Оформить заказ</Text>
+            <LinearGradient
+              colors={['#FFBCD9', '#FFCBBB']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.payGradient}
+            >
+              <Text style={styles.payButtonText}>Оформить заказ</Text>
+            </LinearGradient>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -492,15 +504,24 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingTop: 48,
     paddingBottom: 16,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
+  },
+  backButton: {
+    padding: 4,
+    marginLeft: 8,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#FF147A',
     fontFamily: 'Poppins-SemiBold',
+  },
+  placeholder: {
+    width: 32,
   },
   center: {
     flex: 1,
@@ -816,9 +837,11 @@ const styles = StyleSheet.create({
   },
   payButton: {
     marginTop: 16,
-    backgroundColor: '#FF147A',
-    paddingVertical: 14,
     borderRadius: 12,
+    overflow: 'hidden',
+  },
+  payGradient: {
+    paddingVertical: 14,
     alignItems: 'center',
   },
   payButtonText: {

@@ -21,6 +21,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 48) / 2;
+const BANNER_HEIGHT = 180;
 
 let productsCache = null;
 let lastFetch = 0;
@@ -78,7 +79,7 @@ export default function CatalogScreen({ navigation }) {
   ];
 
   useEffect(() => {
-    const getUserId = async () => {
+    const getUserIdAndCart = async () => {
       const userStr = await AsyncStorage.getItem('user');
       if (userStr) {
         const user = JSON.parse(userStr);
@@ -86,7 +87,7 @@ export default function CatalogScreen({ navigation }) {
         loadCartCount(user.user_id);
       }
     };
-    getUserId();
+    getUserIdAndCart();
     loadBanners();
     loadProducts();
   }, []);
@@ -182,7 +183,7 @@ export default function CatalogScreen({ navigation }) {
 
   const handleAddToCart = async (product) => {
     if (!userId) {
-      showGradientAlert('Ошибка', 'Пожалуйста, войдите в аккаунт');
+      Alert.alert('Ошибка', 'Пожалуйста, войдите в аккаунт');
       navigation.navigate('Login');
       return;
     }
@@ -190,14 +191,10 @@ export default function CatalogScreen({ navigation }) {
     try {
       await addToCart(userId, product.product_id, 1, null);
       await loadCartCount(userId);
-      showGradientAlert('Добавлено', `${product.name} добавлен в корзину`);
+      Alert.alert('Добавлено', `${product.name} добавлен в корзину`);
     } catch (error) {
-      showGradientAlert('Ошибка', 'Не удалось добавить товар в корзину');
+      Alert.alert('Ошибка', 'Не удалось добавить товар в корзину');
     }
-  };
-
-  const showGradientAlert = (title, message) => {
-    Alert.alert(title, message, [{ text: 'OK' }], { cancelable: true });
   };
 
   const renderBanner = ({ item }) => {
@@ -291,6 +288,9 @@ export default function CatalogScreen({ navigation }) {
         end={{ x: 1, y: 0 }}
         style={styles.header}
       >
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="#333" />
+        </TouchableOpacity>
         <View style={styles.searchContainer}>
           <Ionicons name="search" size={18} color="#999" style={styles.searchIcon} />
           <TextInput
@@ -366,6 +366,13 @@ export default function CatalogScreen({ navigation }) {
         }
       />
 
+      {/* Индикатор количества в корзине */}
+      {cartCount > 0 && (
+        <View style={styles.cartBadge}>
+          <Text style={styles.cartBadgeText}>{cartCount}</Text>
+        </View>
+      )}
+
       <Modal
         animationType="fade"
         transparent={true}
@@ -418,6 +425,10 @@ const styles = StyleSheet.create({
     paddingTop: 48,
     paddingBottom: 12,
   },
+  backButton: {
+    padding: 4,
+    marginRight: 8,
+  },
   searchContainer: {
     flex: 1,
     flexDirection: 'row',
@@ -452,12 +463,12 @@ const styles = StyleSheet.create({
   },
   bannerContainer: {
     width: width,
-    height: 160,
+    height: BANNER_HEIGHT,
     paddingHorizontal: 16,
   },
   bannerImage: {
     width: width - 32,
-    height: 160,
+    height: BANNER_HEIGHT,
     borderRadius: 12,
     backgroundColor: '#F0F0F0',
   },
@@ -556,7 +567,7 @@ const styles = StyleSheet.create({
   },
   bottomRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
     marginTop: 4,
   },
@@ -565,14 +576,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#2C2C2C',
     fontFamily: 'Poppins-SemiBold',
+    textAlign: 'center',
   },
   addButton: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    position: 'absolute',
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#FFBCD9',
     borderWidth: 1.5,
     borderColor: '#FF147A',
-    backgroundColor: '#FFBCD9',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -599,6 +613,22 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
     color: '#999',
+  },
+  cartBadge: {
+    position: 'absolute',
+    bottom: 70,
+    right: 20,
+    backgroundColor: '#FF147A',
+    borderRadius: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    minWidth: 20,
+    alignItems: 'center',
+  },
+  cartBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   modalOverlay: {
     flex: 1,

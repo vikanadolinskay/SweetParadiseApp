@@ -6,6 +6,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { getProductById, addToCart } from '../../services/database';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function ProductDetailScreen({ route, navigation }) {
   const { productId } = route.params;
@@ -31,23 +32,19 @@ export default function ProductDetailScreen({ route, navigation }) {
     setLoading(false);
   };
 
-  const showGradientAlert = (title, message) => {
-    Alert.alert(title, message, [{ text: 'OK' }]);
-  };
-
   const handleAddToCart = async () => {
     if (!userId) {
-      showGradientAlert('Ошибка', 'Пожалуйста, войдите в аккаунт');
+      Alert.alert('Ошибка', 'Пожалуйста, войдите в аккаунт');
       navigation.navigate('Login');
       return;
     }
     await addToCart(userId, product.product_id, 1, null);
-    showGradientAlert('Добавлено', `${product.name} добавлен в корзину`);
+    Alert.alert('Добавлено', `${product.name} добавлен в корзину`);
   };
 
   const handleCustomize = () => {
     if (!userId) {
-      showGradientAlert('Ошибка', 'Пожалуйста, войдите в аккаунт');
+      Alert.alert('Ошибка', 'Пожалуйста, войдите в аккаунт');
       navigation.navigate('Login');
       return;
     }
@@ -85,9 +82,13 @@ export default function ProductDetailScreen({ route, navigation }) {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Заголовок Детали товара */}
+      {/* Заголовок */}
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="#fff" />
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>Детали товара</Text>
+        <View style={styles.placeholder} />
       </View>
 
       <Image source={imageSource} style={styles.image} />
@@ -106,24 +107,9 @@ export default function ProductDetailScreen({ route, navigation }) {
         
         <Text style={styles.price}>{Math.round(finalPrice)} ₽</Text>
         
-        {/* ПОЛНОЕ описание - весь текст из БД */}
         <Text style={styles.description}>
           {product.description || 'Описание отсутствует'}
         </Text>
-        
-        {product.filling && (
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Начинка:</Text>
-            <Text style={styles.infoValue}>{product.filling}</Text>
-          </View>
-        )}
-        
-        {product.weight && (
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Вес:</Text>
-            <Text style={styles.infoValue}>{product.weight}</Text>
-          </View>
-        )}
         
         {product.calories && (
           <View style={styles.infoRow}>
@@ -133,9 +119,16 @@ export default function ProductDetailScreen({ route, navigation }) {
         )}
         
         <View style={styles.buttons}>
-          <TouchableOpacity style={styles.cartButton} onPress={handleAddToCart}>
-            <Text style={styles.buttonText}>В корзину</Text>
-          </TouchableOpacity>
+          <LinearGradient
+            colors={['#FFBCD9', '#FFCBBB']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.cartButton}
+          >
+            <TouchableOpacity style={styles.cartButtonInner} onPress={handleAddToCart}>
+              <Text style={styles.buttonText}>В корзину</Text>
+            </TouchableOpacity>
+          </LinearGradient>
           
           {product.is_customizable === 1 && (
             <LinearGradient
@@ -163,7 +156,13 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: '#FFBCD9',
     paddingVertical: 12,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  backButton: {
+    padding: 4,
   },
   headerTitle: {
     fontSize: 14,
@@ -171,6 +170,9 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontFamily: 'Poppins-SemiBold',
     textAlign: 'center',
+  },
+  placeholder: {
+    width: 32,
   },
   center: { 
     flex: 1, 
@@ -234,7 +236,7 @@ const styles = StyleSheet.create({
     color: '#444', 
     lineHeight: 22, 
     marginBottom: 20,
-    textAlign: 'left',
+    textAlign: 'justify',
     fontFamily: 'Poppins-Regular',
   },
   infoRow: { 
@@ -259,12 +261,14 @@ const styles = StyleSheet.create({
     gap: 12, 
     marginTop: 16 
   },
-  cartButton: { 
-    flex: 1, 
-    backgroundColor: '#FF147A', 
-    padding: 14, 
-    borderRadius: 8, 
-    alignItems: 'center' 
+  cartButton: {
+    flex: 1,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  cartButtonInner: {
+    padding: 14,
+    alignItems: 'center',
   },
   buttonText: { 
     color: '#fff', 
@@ -275,12 +279,11 @@ const styles = StyleSheet.create({
   customizeButton: {
     flex: 1,
     borderRadius: 8,
-    padding: 2,
+    overflow: 'hidden',
   },
   customizeInner: {
     backgroundColor: '#fff',
     padding: 12,
-    borderRadius: 6,
     alignItems: 'center',
   },
   customizeButtonText: { 
