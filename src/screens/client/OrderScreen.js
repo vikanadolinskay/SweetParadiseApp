@@ -10,12 +10,13 @@ import {
   Modal,
   FlatList,
   Image,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getOrdersByUserId } from '../../services/database';
-import { showGradientAlert } from '../../components/GradientAlert';
+import { getOrdersByUserId, executeQuery } from '../../services/database';
+import { showGradientAlert, showGradientConfirm } from '../../components/GradientAlert';
 
 export default function OrderScreen({ navigation }) {
   const [orders, setOrders] = useState([]);
@@ -24,6 +25,8 @@ export default function OrderScreen({ navigation }) {
   const [modalVisible, setModalVisible] = useState(false);
   const [activeTab, setActiveTab] = useState('active');
 
+  // Статусы, которые можно отменить
+  const cancellableStatuses = ['pending', 'paid'];
   const activeStatuses = ['pending', 'paid', 'preparing', 'ready'];
   const completedStatuses = ['completed', 'cancelled'];
 
@@ -31,6 +34,7 @@ export default function OrderScreen({ navigation }) {
     loadOrders();
   }, []);
 
+  // Загрузка заказов
   const loadOrders = async () => {
     try {
       const userStr = await AsyncStorage.getItem('user');
@@ -47,6 +51,106 @@ export default function OrderScreen({ navigation }) {
     }
   };
 
+  // Проверка, можно ли отменить заказ
+  const canCancelOrder = (order) => {
+    // Нельзя отменить уже отменённый или выполненный
+    if (order.status === 'cancelled' || order.status === 'completed') {
+      return false;
+    }
+    
+    // Нельзя отменить, если уже в производстве или готов
+    if (order.status === 'preparing' || order.status === 'ready') {
+      return false;
+    }
+    
+    // Для статусов pending и paid проверяем время
+    if (cancellableStatuses.includes(order.status)) {
+      const createdAt = new Date(order.created_at);
+      const now = new Date();
+      const minutesDiff = (now - createdAt) / (1000 * 60);
+      
+      // Можно отменить в течение 15 минут после создания
+      return minutesDiff <= 15;
+    }
+    
+    return false;
+  };
+
+  // Получение сообщения о причине невозможности отмены
+  const getCancelReason = (order) => {
+    if (order.status === 'cancelled') return 'Заказ уже отменён';
+    if (order.status === 'completed') return 'Выполненный заказ нельзя отменить';
+    if (order.status === 'preparing') return 'Заказ уже в производстве, отмена невозможна';
+    if (order.status === 'ready') return 'Заказ готов к выдаче, отмена невозможна';
+    
+    if (order.status === 'pending' || order.status === 'paid') {
+      const createdAt = new Date(order.created_at);
+      const now = new Date();
+      const minutesDiff = (now - createdAt) / (1000 * 60);
+      const remainingMinutes = Math.round(15 - minutesDiff);
+      
+      if (minutesDiff > 15) {
+        return `Истекло время отмены (15 минут). Заказ передан в обработку`;
+      }
+      return `Отмена возможна в течение 15 минут. Осталось ${remainingMinutes} мин`;
+    }
+    
+    return 'Отмена недоступна';
+  };
+
+  // Отмена заказа
+  const cancelOrder = async (order) => {
+    if (!canCancelOrder(order)) {
+      const reason = getCancelReason(order);
+      showGradientAlert({ 
+        title: 'Отмена невозможна', 
+        message: reason 
+      });
+      return;
+    }
+
+    const minutesLeft = 15 - ((new Date() - new Date(order.created_at)) / (1000 * 60));
+    
+    showGradientConfirm({
+      title: 'Отмена заказа',
+      message: `Вы действительно хотите отменить заказ №${order.order_id}?\n\nВнимание: отмена возможна только в течение 15 минут с момента оформления. Осталось ${Math.round(minutesLeft)} минут.`,
+      onConfirm: async () => {
+        try {
+          // Обновляем статус заказа
+          await executeQuery(
+            `UPDATE orders 
+             SET status = 'cancelled', 
+                 updated_at = datetime('now') 
+             WHERE order_id = ?`,
+            [order.order_id]
+          );
+          
+          // Добавляем запись в историю
+          await executeQuery(
+            `INSERT INTO order_history (order_id, action, description, created_at)
+             VALUES (?, 'status_changed', 'Заказ отменён пользователем', datetime('now'))`,
+            [order.order_id]
+          );
+          
+          showGradientAlert({ 
+            title: 'Успешно', 
+            message: `Заказ №${order.order_id} отменён`,
+            onOk: () => {
+              setModalVisible(false);
+              loadOrders();
+            }
+          });
+        } catch (error) {
+          console.error('Cancel order error:', error);
+          showGradientAlert({ 
+            title: 'Ошибка', 
+            message: 'Не удалось отменить заказ' 
+          });
+        }
+      },
+    });
+  };
+
   const getStatusText = (status) => {
     const statusMap = {
       'pending': 'Оформлен',
@@ -54,7 +158,7 @@ export default function OrderScreen({ navigation }) {
       'preparing': 'В производстве',
       'ready': 'Готов к выдаче',
       'completed': 'Выполнен',
-      'cancelled': 'Отменен',
+      'cancelled': 'Отменён',
     };
     return statusMap[status] || status;
   };
@@ -86,31 +190,52 @@ export default function OrderScreen({ navigation }) {
   const activeOrders = orders.filter(order => activeStatuses.includes(order.status));
   const completedOrders = orders.filter(order => completedStatuses.includes(order.status));
 
-  const renderOrderCard = ({ item }) => (
-    <TouchableOpacity
-      style={styles.orderCard}
-      onPress={() => {
-        setSelectedOrder(item);
-        setModalVisible(true);
-      }}
-      activeOpacity={0.95}
-    >
-      <View style={styles.orderHeader}>
-        <Text style={styles.orderNumber}>Заказ №{item.order_id}</Text>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20' }]}>
-          <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
-            {getStatusText(item.status)}
-          </Text>
+  const renderOrderCard = ({ item }) => {
+    const cancellable = canCancelOrder(item);
+    const cancelReason = getCancelReason(item);
+    
+    return (
+      <TouchableOpacity
+        style={styles.orderCard}
+        onPress={() => {
+          setSelectedOrder(item);
+          setModalVisible(true);
+        }}
+        activeOpacity={0.95}
+      >
+        <View style={styles.orderHeader}>
+          <Text style={styles.orderNumber}>Заказ №{item.order_id}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20' }]}>
+            <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
+              {getStatusText(item.status)}
+            </Text>
+          </View>
         </View>
-      </View>
-      <Text style={styles.orderDate}>{formatDate(item.created_at)}</Text>
-      <Text style={styles.orderTotal}>{Math.round(item.total_amount)} ₽</Text>
-      <Text style={styles.orderItems}>Товаров: {item.items_count || 0}</Text>
-    </TouchableOpacity>
-  );
+        <Text style={styles.orderDate}>{formatDate(item.created_at)}</Text>
+        <Text style={styles.orderTotal}>{Math.round(item.total_amount)} ₽</Text>
+        <Text style={styles.orderItems}>Товаров: {item.items_count || 0}</Text>
+        
+        {/* Кнопка отмены для активных заказов */}
+        {activeStatuses.includes(item.status) && (
+          <TouchableOpacity
+            style={[styles.cancelButton, !cancellable && styles.cancelButtonDisabled]}
+            onPress={() => cancelOrder(item)}
+            disabled={!cancellable}
+          >
+            <Text style={[styles.cancelButtonText, !cancellable && styles.cancelButtonTextDisabled]}>
+              {cancellable ? 'Отменить заказ' : cancelReason}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </TouchableOpacity>
+    );
+  };
 
   const renderOrderDetail = () => {
     if (!selectedOrder) return null;
+    
+    const cancellable = canCancelOrder(selectedOrder);
+    const cancelReason = getCancelReason(selectedOrder);
 
     const statusHistory = [
       { status: 'pending', label: 'Оформлен', time: selectedOrder.created_at },
@@ -150,11 +275,42 @@ export default function OrderScreen({ navigation }) {
                 </View>
               </View>
 
+              {/* Кнопка отмены в модальном окне */}
+              {activeStatuses.includes(selectedOrder.status) && (
+                <TouchableOpacity
+                  style={[styles.modalCancelButton, !cancellable && styles.modalCancelButtonDisabled]}
+                  onPress={() => {
+                    setModalVisible(false);
+                    setTimeout(() => cancelOrder(selectedOrder), 300);
+                  }}
+                  disabled={!cancellable}
+                >
+                  <LinearGradient
+                    colors={cancellable ? ['#FF6B6B', '#FF4444'] : ['#CCCCCC', '#BBBBBB']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.modalCancelGradient}
+                  >
+                    <Text style={styles.modalCancelButtonText}>
+                      {cancellable ? 'Отменить заказ' : cancelReason}
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              )}
+
               <View style={styles.infoSection}>
                 <Text style={styles.sectionTitle}>Информация</Text>
                 <View style={styles.infoRow}>
                   <Text style={styles.infoLabel}>Дата создания:</Text>
                   <Text style={styles.infoValue}>{formatDate(selectedOrder.created_at)}</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Время для отмены:</Text>
+                  <Text style={styles.infoValue}>
+                    {cancellable 
+                      ? `Осталось ${Math.round(15 - ((new Date() - new Date(selectedOrder.created_at)) / (1000 * 60)))} мин`
+                      : 'Отмена недоступна'}
+                  </Text>
                 </View>
                 {selectedOrder.completed_at && (
                   <View style={styles.infoRow}>
@@ -180,7 +336,6 @@ export default function OrderScreen({ navigation }) {
                 </View>
               </View>
 
-              {/* Товары в заказе с фото */}
               <View style={styles.itemsSection}>
                 <Text style={styles.sectionTitle}>Состав заказа</Text>
                 {selectedOrder.items && selectedOrder.items.length > 0 ? (
@@ -209,7 +364,6 @@ export default function OrderScreen({ navigation }) {
                 )}
               </View>
 
-              {/* История статусов */}
               <View style={styles.historySection}>
                 <Text style={styles.sectionTitle}>История статусов</Text>
                 {statusHistory.map((item, index) => {
@@ -430,6 +584,25 @@ const styles = StyleSheet.create({
     color: '#666',
     fontFamily: 'Poppins-Regular',
   },
+  cancelButton: {
+    marginTop: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: '#FFEBEE',
+    alignItems: 'center',
+  },
+  cancelButtonDisabled: {
+    backgroundColor: '#F5F5F5',
+  },
+  cancelButtonText: {
+    fontSize: 13,
+    color: '#F44336',
+    fontWeight: '500',
+    fontFamily: 'Poppins-Medium',
+  },
+  cancelButtonTextDisabled: {
+    color: '#999',
+  },
   emptyContainer: {
     alignItems: 'center',
     paddingVertical: 60,
@@ -492,6 +665,25 @@ const styles = StyleSheet.create({
   },
   statusTextLarge: {
     fontSize: 14,
+    fontWeight: '600',
+    fontFamily: 'Poppins-SemiBold',
+  },
+  modalCancelButton: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  modalCancelButtonDisabled: {
+    opacity: 0.6,
+  },
+  modalCancelGradient: {
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  modalCancelButtonText: {
+    color: '#fff',
+    fontSize: 15,
     fontWeight: '600',
     fontFamily: 'Poppins-SemiBold',
   },

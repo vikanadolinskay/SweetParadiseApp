@@ -34,6 +34,7 @@ export default function CartScreen({ navigation }) {
   const [cardHolder, setCardHolder] = useState('');
   const [savedCard, setSavedCard] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [showCvv, setShowCvv] = useState(false);
 
   const pickupAddresses = [
     'г. Таганрог, ул. Петровская 711',
@@ -457,8 +458,10 @@ export default function CartScreen({ navigation }) {
                 placeholderTextColor="#999"
                 keyboardType="numeric"
                 maxLength={3}
-                secureTextEntry
-                value={cardCvv}
+                secureTextEntry={false}
+                value={showCvv ? cardCvv : (cardCvv ? cardCvv.replace(/./g, '*') : '')}
+                onFocus={() => setShowCvv(true)}
+                onBlur={() => setShowCvv(false)}
                 onChangeText={(text) => setCardCvv(formatCvv(text))}
               />
             </View>

@@ -34,6 +34,7 @@ export default function CheckoutScreen({ route, navigation }) {
   const [cardExpiry, setCardExpiry] = useState('');
   const [cardCvv, setCardCvv] = useState('');
   const [cardHolder, setCardHolder] = useState('');
+  const [showCvv, setShowCvv] = useState(false);
   
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -339,7 +340,7 @@ export default function CheckoutScreen({ route, navigation }) {
           ))}
         </View>
 
-        {/* Итого */}
+        {/* Итого - белым цветом */}
         <LinearGradient
           colors={['#FFCBBB', '#FFCBBB']}
           start={{ x: 0, y: 0 }}
@@ -435,8 +436,10 @@ export default function CheckoutScreen({ route, navigation }) {
                 placeholderTextColor="#999"
                 keyboardType="numeric"
                 maxLength={3}
-                secureTextEntry
-                value={cardCvv}
+                secureTextEntry={false}
+                value={showCvv ? cardCvv : (cardCvv ? cardCvv.replace(/./g, '*') : '')}
+                onFocus={() => setShowCvv(true)}
+                onBlur={() => setShowCvv(false)}
                 onChangeText={(text) => setCardCvv(formatCvv(text))}
               />
             </View>
@@ -692,13 +695,13 @@ const styles = StyleSheet.create({
   totalLabel: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#2C2C2C',
+    color: '#FFFFFF',
     fontFamily: 'Poppins-SemiBold',
   },
   totalPrice: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#2C2C2C',
+    color: '#FFFFFF',
   },
   confirmButton: {
     marginHorizontal: 16,

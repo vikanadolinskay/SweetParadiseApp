@@ -2,6 +2,7 @@
 import * as SQLite from 'expo-sqlite';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Asset } from 'expo-asset';
+import bcrypt from 'react-native-bcrypt';
 
 const DB_NAME = 'sweet.db';
 
@@ -140,16 +141,33 @@ export const initDatabase = async () => {
     `);
     console.log('[DB] Таблица banners проверена');
 
-    // Создаём тестового пользователя
+    // Создаём тестового пользователя с ХЭШИРОВАННЫМ паролем
     const existingUser = await db.getAllAsync("SELECT * FROM users WHERE email = 'test@sweet.ru'");
     if (existingUser.length === 0) {
+      // ХЭШИРУЕМ пароль '123456'
+      const salt = bcrypt.genSaltSync(12);
+      const hashedPassword = bcrypt.hashSync('123456', salt);
+      
       await db.runAsync(`
         INSERT INTO users (email, full_name, phone, password_hash, role) 
-        VALUES ('test@sweet.ru', 'Тестовый Пользователь', '+79001234567', '123456', 'client')
-      `);
-      console.log('[DB] Тестовый пользователь создан');
+        VALUES ('test@sweet.ru', 'Тестовый Пользователь', '+79001234567', ?, 'client')
+      `, [hashedPassword]);
+      console.log('[DB] Тестовый пользователь создан (пароль: 123456)');
     } else {
       console.log('[DB] Тестовый пользователь уже существует');
+    }
+
+    // Создаём администратора, если его нет
+    const existingAdmin = await db.getAllAsync("SELECT * FROM users WHERE email = 'admin@sweetparadise.ru'");
+    if (existingAdmin.length === 0) {
+      const salt = bcrypt.genSaltSync(12);
+      const hashedPassword = bcrypt.hashSync('123456', salt);
+      
+      await db.runAsync(`
+        INSERT INTO users (email, full_name, phone, password_hash, role) 
+        VALUES ('admin@sweetparadise.ru', 'Администратор', '+79009999999', ?, 'admin')
+      `, [hashedPassword]);
+      console.log('[DB] Администратор создан (пароль: 123456)');
     }
 
     // Проверяем и добавляем баннеры, если их нет
@@ -226,7 +244,6 @@ export const getBanners = async () => {
       ORDER BY order_position ASC, banner_id ASC
     `, [today, today]);
     
-    // Добавляем поле image_source с require для локальных изображений баннеров
     return banners.map(b => ({
       ...b,
       image_source: getLocalImage(b.image_url)
@@ -242,7 +259,6 @@ export const getProducts = async () => {
   const dbConn = await getDb();
   const products = await dbConn.getAllAsync('SELECT * FROM products WHERE is_available = 1 ORDER BY product_id');
   
-  // Добавляем поле image_source с require для локальных изображений
   return products.map(p => ({
     ...p,
     image_source: getLocalImage(p.image_url)
@@ -359,6 +375,7 @@ export const checkEmailExists = async (email) => {
   return result.length > 0;
 };
 
+// ========== РЕГИСТРАЦИЯ С BCRYPT (ХЭШИРОВАНИЕ ПАРОЛЯ) ==========
 export const createUser = async (email, fullName, phone, password) => {
   console.log('[CREATE] Регистрация:', email);
   const dbConn = await getDb();
@@ -368,10 +385,16 @@ export const createUser = async (email, fullName, phone, password) => {
     return { success: false, error: 'Email уже существует' };
   }
 
+  // ХЭШИРУЕМ ПАРОЛЬ (12 раундов - стандарт безопасности)
+  const salt = bcrypt.genSaltSync(12);
+  const hashedPassword = bcrypt.hashSync(password, salt);
+  
+  console.log('[CREATE] Пароль захэширован');
+
   const result = await dbConn.runAsync(
     `INSERT INTO users (email, full_name, phone, password_hash, role, loyalty_points, personal_discount, created_at)
      VALUES (?, ?, ?, ?, 'client', 0, 0, datetime('now'))`,
-    [email, fullName, phone, password]
+    [email, fullName, phone, hashedPassword]
   );
 
   console.log('[CREATE] Пользователь создан, userId:', result.lastInsertRowId);
@@ -394,6 +417,7 @@ export const getUserById = async (userId) => {
   return result.length > 0 ? result[0] : null;
 };
 
+// ========== АВТОРИЗАЦИЯ С BCRYPT (ПРОВЕРКА ПАРОЛЯ) ==========
 export const authenticateUser = async (email, password) => {
   console.log('[AUTH] Попытка входа:', email);
   const dbConn = await getDb();
@@ -404,10 +428,17 @@ export const authenticateUser = async (email, password) => {
     return { success: false, error: 'Пользователь не найден' };
   }
 
-  console.log('[AUTH] Пароль из БД:', user.password_hash);
-  console.log('[AUTH] Введённый пароль:', password);
+  // ПРОВЕРЯЕМ ПАРОЛЬ ЧЕРЕЗ BCRYPT
+  let isPasswordValid = false;
+  try {
+    isPasswordValid = bcrypt.compareSync(password, user.password_hash);
+  } catch (err) {
+    console.log('[AUTH] Ошибка bcrypt:', err);
+  }
 
-  if (password !== user.password_hash) {
+  console.log('[AUTH] Результат проверки пароля:', isPasswordValid);
+
+  if (!isPasswordValid) {
     console.log('[AUTH] Неверный пароль:', email);
     return { success: false, error: 'Неверный пароль' };
   }
@@ -435,6 +466,45 @@ export const updateUserProfile = async (userId, data) => {
     return true;
   } catch (error) {
     console.error('[UPDATE] Ошибка обновления профиля:', error);
+    return false;
+  }
+};
+
+// ========== УДАЛЕНИЕ ПОЛЬЗОВАТЕЛЯ ==========
+export const deleteUserAccount = async (userId) => {
+  const dbConn = await getDb();
+  if (!dbConn) return false;
+  
+  try {
+    await dbConn.execAsync('BEGIN TRANSACTION');
+    
+    // Удаляем корзину
+    await dbConn.runAsync('DELETE FROM cart_items WHERE user_id = ?', [userId]);
+    
+    // Удаляем историю заказов
+    await dbConn.runAsync('DELETE FROM order_history WHERE user_id = ?', [userId]);
+    
+    // Удаляем историю лояльности
+    await dbConn.runAsync('DELETE FROM loyalty_history WHERE user_id = ?', [userId]);
+    
+    // Удаляем позиции заказов
+    await dbConn.runAsync(`
+      DELETE FROM order_items 
+      WHERE order_id IN (SELECT order_id FROM orders WHERE user_id = ?)
+    `, [userId]);
+    
+    // Удаляем заказы
+    await dbConn.runAsync('DELETE FROM orders WHERE user_id = ?', [userId]);
+    
+    // Удаляем пользователя
+    await dbConn.runAsync('DELETE FROM users WHERE user_id = ?', [userId]);
+    
+    await dbConn.execAsync('COMMIT');
+    console.log('[DELETE] Пользователь', userId, 'удалён');
+    return true;
+  } catch (error) {
+    await dbConn.execAsync('ROLLBACK');
+    console.error('[DELETE] Ошибка удаления пользователя:', error);
     return false;
   }
 };
@@ -570,10 +640,12 @@ export default {
   authenticateUser,
   updateLoyaltyPoints,
   updateUserProfile,
+  deleteUserAccount,
   getOrdersByUserId,
   getOrderItems,
   createOrder,
   updateOrderStatus,
   getPromotions,
   getPopularProducts,
+  executeQuery,
 };

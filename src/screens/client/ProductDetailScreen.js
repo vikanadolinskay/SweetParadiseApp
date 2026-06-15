@@ -92,7 +92,7 @@ export default function ProductDetailScreen({ route, navigation }) {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Заголовок */}
+      {/* Заголовок - ИЗМЕНЕНО: размер как у корзины */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#FF147A" />
@@ -164,28 +164,28 @@ const styles = StyleSheet.create({
     flex: 1, 
     backgroundColor: '#fff' 
   },
+  // ИЗМЕНЕНО: header как в корзине
   header: {
-    backgroundColor: '#FFFFFF', // белый фон
-    paddingVertical: 12,
-    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,      // <- ИЗМЕНЕНО: было 12, оставили 12
+    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: '#EEEEEE',
   },
   backButton: {
-    padding: 4,
+    padding: 8,               // <- ИЗМЕНЕНО: было 4, теперь 8 (как в корзине)
   },
   headerTitle: {
-    fontSize: 14,
+    fontSize: 17,             // <- ИЗМЕНЕНО: было 14, теперь 17 (как в корзине)
     fontWeight: '600',
-    color: '#FF147A', // розовый цвет
-    fontFamily: 'Poppins-SemiBold',
-    textAlign: 'center',
+    color: '#FF147A',
+    fontFamily: Platform.OS === 'ios' ? 'Poppins-SemiBold' : 'Poppins',
   },
   placeholder: {
-    width: 32,
+    width: 40,               // <- ИЗМЕНЕНО: было 32, теперь 40 (как в корзине)
   },
   center: { 
     flex: 1, 
@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
     color: '#2C2C2C', 
     marginBottom: 8,
     textAlign: 'center',
-    fontFamily: 'Poppins-SemiBold',
+    fontFamily: Platform.OS === 'ios' ? 'Poppins-SemiBold' : 'Poppins',
   },
   discountRow: { 
     flexDirection: 'row', 
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
     color: '#FF147A', 
     fontWeight: '600',
     fontSize: 12,
-    fontFamily: 'Poppins-SemiBold',
+    fontFamily: Platform.OS === 'ios' ? 'Poppins-SemiBold' : 'Poppins',
   },
   price: { 
     fontSize: 22, 
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
     color: '#2C2C2C', 
     marginBottom: 16,
     textAlign: 'center',
-    fontFamily: 'Poppins-Bold',
+    fontFamily: Platform.OS === 'ios' ? 'Poppins-Bold' : 'Poppins',
   },
   description: { 
     fontSize: 14, 
@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
     lineHeight: 22, 
     marginBottom: 20,
     textAlign: 'justify',
-    fontFamily: 'Poppins-Regular',
+    fontFamily: Platform.OS === 'ios' ? 'Poppins-Regular' : 'Poppins',
   },
   caloriesContainer: {
     alignItems: 'center',
@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#666',
-    fontFamily: 'Poppins-Medium',
+    fontFamily: Platform.OS === 'ios' ? 'Poppins-Medium' : 'Poppins',
     textAlign: 'center',
   },
   buttons: { 
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
     color: '#fff', 
     fontWeight: '600', 
     fontSize: 14,
-    fontFamily: 'Poppins-SemiBold',
+    fontFamily: Platform.OS === 'ios' ? 'Poppins-SemiBold' : 'Poppins',
   },
   customizeButton: {
     flex: 1,
@@ -297,6 +297,6 @@ const styles = StyleSheet.create({
     color: '#FF147A', 
     fontWeight: '600', 
     fontSize: 14,
-    fontFamily: 'Poppins-SemiBold',
+    fontFamily: Platform.OS === 'ios' ? 'Poppins-SemiBold' : 'Poppins',
   },
 });
