@@ -6,6 +6,7 @@ import GradientAlertProvider from './src/components/GradientAlert';
 import GradientConfirmProvider from './src/components/GradientConfirm';
 import { initDatabase, syncOfflineOrders, getOfflineOrdersCount } from './src/services/database';
 import { showGradientAlert } from './src/components/GradientAlert';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function App() {
   const [dbReady, setDbReady] = useState(false);
@@ -13,25 +14,39 @@ export default function App() {
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const setupDatabase = async () => {
+    const setup = async () => {
       try {
         console.log('Инициализация базы данных...');
         await initDatabase();
         console.log('База данных готова');
         setDbReady(true);
         
+        // Проверяем авторизацию
+        const user = await AsyncStorage.getItem('user');
+        setIsLoggedIn(!!user);
+        
         // После инициализации БД проверяем и синхронизируем офлайн-заказы
         await checkAndSyncOfflineOrders();
       } catch (err) {
         console.error('Ошибка при инициализации БД:', err);
         setError(err.message);
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    setupDatabase();
+    setup();
   }, []);
+
+  // Функция для обновления состояния авторизации
+  const updateAuthState = async () => {
+    const user = await AsyncStorage.getItem('user');
+    setIsLoggedIn(!!user);
+  };
 
   // Проверка и синхронизация офлайн-заказов
   const checkAndSyncOfflineOrders = async () => {
@@ -50,7 +65,6 @@ export default function App() {
             message: `Успешно синхронизировано ${result.synced} заказов из ${result.total}`
           });
         } else if (result.success && result.synced === 0 && result.total > 0) {
-          // Если заказы есть, но не синхронизировались (нет интернета)
           console.log('[APP] Офлайн-заказы ожидают подключения к интернету');
         }
       }
@@ -65,7 +79,7 @@ export default function App() {
     setToastVisible(true);
   };
 
-  if (!dbReady && !error) {
+  if (isLoading || !dbReady) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
         <ActivityIndicator size="large" color="#FF147A" />
@@ -104,7 +118,7 @@ export default function App() {
               <Text style={{ color: '#fff', fontSize: 12 }}>Синхронизация заказов...</Text>
             </View>
           )}
-          <AppNavigator />
+          <AppNavigator isLoggedIn={isLoggedIn} onAuthStateChange={updateAuthState} />
         </SafeAreaView>
         <GradientToast 
           visible={toastVisible} 

@@ -23,6 +23,7 @@ const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 48) / 2;
 const BANNER_HEIGHT = 170;
 const BANNER_WIDTH = width - 32;
+const BANNER_GAP = 8;
 
 let productsCache = null;
 let lastFetch = 0;
@@ -72,6 +73,7 @@ export default function CatalogScreen({ navigation }) {
     { id: 'cakes', title: 'Торты' },
     { id: 'pastries', title: 'Пирожные' },
     { id: 'desserts', title: 'Десерты' },
+    { id: 'cookies', title: 'Печенье' },
   ];
 
   const sortOptions = [
@@ -328,15 +330,13 @@ export default function CatalogScreen({ navigation }) {
     setShowSortMenu(false);
   };
 
-  // Обработка окончания прокрутки баннеров
   const onBannerScrollEnd = (event) => {
     const contentOffset = event.nativeEvent.contentOffset;
-    const index = Math.round(contentOffset.x / width);
+    const index = Math.round(contentOffset.x / (BANNER_WIDTH + BANNER_GAP));
     if (index >= 0 && index < banners.length) {
       setCurrentBannerIndex(index);
     }
     setIsScrolling(false);
-    // Возобновляем автопрокрутку через 3 секунды
     setTimeout(() => {
       if (banners.length > 1) {
         startAutoScroll();
@@ -360,7 +360,6 @@ export default function CatalogScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      {/* Розовый верх с поиском */}
       <LinearGradient
         colors={['#FFBCD9', '#FFCBBB']}
         start={{ x: 0, y: 0 }}
@@ -382,7 +381,6 @@ export default function CatalogScreen({ navigation }) {
         </TouchableOpacity>
       </LinearGradient>
 
-      {/* Баннеры */}
       {banners.length > 0 && (
         <View style={styles.bannerWrapper}>
           <FlatList
@@ -394,7 +392,7 @@ export default function CatalogScreen({ navigation }) {
             pagingEnabled
             showsHorizontalScrollIndicator={false}
             snapToAlignment="center"
-            snapToInterval={width}
+            snapToInterval={BANNER_WIDTH + BANNER_GAP}
             decelerationRate="fast"
             onScrollBeginDrag={onBannerScrollBegin}
             onMomentumScrollEnd={onBannerScrollEnd}
@@ -418,17 +416,17 @@ export default function CatalogScreen({ navigation }) {
         </View>
       )}
 
-      {/* Категории */}
-      <FlatList
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        data={categories}
-        renderItem={renderCategory}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.categoriesList}
-      />
+      <View style={styles.categoriesWrapper}>
+        <FlatList
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          data={categories}
+          renderItem={renderCategory}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.categoriesList}
+        />
+      </View>
 
-      {/* Список товаров */}
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.product_id?.toString() || item.id?.toString()}
@@ -441,13 +439,14 @@ export default function CatalogScreen({ navigation }) {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF147A']} />
         }
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>Ничего не найдено</Text>
-          </View>
+          loading ? null : (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>Ничего не найдено</Text>
+            </View>
+          )
         }
       />
 
-      {/* Индикатор офлайн-заказов */}
       {offlineOrdersCount > 0 && (
         <TouchableOpacity 
           style={styles.offlineBadge}
@@ -560,7 +559,7 @@ const styles = StyleSheet.create({
     height: BANNER_HEIGHT,
     borderRadius: 16,
     overflow: 'hidden',
-    marginRight: 0,
+    marginRight: BANNER_GAP,
   },
   bannerImage: {
     width: '100%',
@@ -587,9 +586,15 @@ const styles = StyleSheet.create({
   inactiveDot: {
     backgroundColor: '#CCCCCC',
   },
+  categoriesWrapper: {
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+    paddingVertical: 4,
+  },
   categoriesList: {
-    paddingHorizontal: 12,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
   categoryChip: {
     paddingHorizontal: 16,
@@ -597,13 +602,16 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: '#F0F0F0',
     marginRight: 10,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
   },
   categoryChipActive: {
     backgroundColor: '#FF147A',
+    borderColor: '#FF147A',
   },
   categoryText: {
     fontSize: 14,
-    color: '#666',
+    color: '#333333',
     fontWeight: '500',
     fontFamily: 'Poppins-Medium',
   },

@@ -29,6 +29,9 @@ export default function OrderScreen({ navigation }) {
   const activeStatuses = ['pending', 'paid', 'preparing', 'ready'];
   const completedStatuses = ['completed', 'cancelled'];
 
+  // Константа для часового пояса (Москва UTC+3)
+  const TIMEZONE_OFFSET = 3 * 60 * 60 * 1000; // 3 часа в миллисекундах
+
   useEffect(() => {
     loadOrders();
   }, []);
@@ -50,15 +53,15 @@ export default function OrderScreen({ navigation }) {
     }
   };
 
-  // Функция для получения локального времени из UTC
+  // ========== ИСПРАВЛЕНО: Функция для получения локального времени ==========
   const getLocalDate = (dateString) => {
     if (!dateString) return null;
     const date = new Date(dateString);
     // Добавляем смещение часового пояса (+3 для Москвы)
-    return new Date(date.getTime() + date.getTimezoneOffset() * 60000 + 3 * 60 * 60 * 1000);
+    return new Date(date.getTime() + TIMEZONE_OFFSET);
   };
 
-  // Проверка, можно ли отменить заказ (исправлено с учётом часового пояса)
+  // ========== ИСПРАВЛЕНО: Проверка, можно ли отменить заказ ==========
   const canCancelOrder = (order) => {
     if (order.status === 'cancelled' || order.status === 'completed') {
       return false;
@@ -69,9 +72,17 @@ export default function OrderScreen({ navigation }) {
     }
     
     if (cancellableStatuses.includes(order.status)) {
+      // Используем локальное время из БД
       const createdAt = getLocalDate(order.created_at);
+      if (!createdAt) return false;
+      
       const now = new Date();
-      const minutesDiff = (now - createdAt) / (1000 * 60);
+      const diffMs = now.getTime() - createdAt.getTime();
+      const minutesDiff = diffMs / (1000 * 60);
+      
+      console.log('[CANCEL] Время создания (лок):', createdAt.toLocaleString());
+      console.log('[CANCEL] Текущее время:', now.toLocaleString());
+      console.log('[CANCEL] Прошло минут:', minutesDiff);
       
       return minutesDiff <= 15;
     }
@@ -79,7 +90,7 @@ export default function OrderScreen({ navigation }) {
     return false;
   };
 
-  // Получение сообщения о причине невозможности отмены (исправлено)
+  // ========== ИСПРАВЛЕНО: Получение сообщения о причине невозможности отмены ==========
   const getCancelReason = (order) => {
     if (order.status === 'cancelled') return 'Заказ уже отменён';
     if (order.status === 'completed') return 'Выполненный заказ нельзя отменить';
@@ -88,14 +99,17 @@ export default function OrderScreen({ navigation }) {
     
     if (order.status === 'pending' || order.status === 'paid') {
       const createdAt = getLocalDate(order.created_at);
+      if (!createdAt) return 'Ошибка определения времени';
+      
       const now = new Date();
-      const minutesDiff = (now - createdAt) / (1000 * 60);
+      const diffMs = now.getTime() - createdAt.getTime();
+      const minutesDiff = diffMs / (1000 * 60);
       const remainingMinutes = Math.round(15 - minutesDiff);
       
       if (minutesDiff > 15) {
         return 'Истекло время отмены (15 минут). Заказ передан в обработку';
       }
-      return `Отмена возможна в течение 15 минут. Осталось ${remainingMinutes} мин`;
+      return `Отмена возможна в течение 15 минут. Осталось ${Math.max(0, remainingMinutes)} мин`;
     }
     
     return 'Отмена недоступна';
@@ -114,11 +128,11 @@ export default function OrderScreen({ navigation }) {
 
     const createdAt = getLocalDate(order.created_at);
     const now = new Date();
-    const minutesLeft = 15 - ((now - createdAt) / (1000 * 60));
+    const minutesLeft = 15 - ((now.getTime() - createdAt.getTime()) / (1000 * 60));
     
     showGradientConfirm({
       title: 'Отмена заказа',
-      message: `Вы действительно хотите отменить заказ №${order.order_id}?\n\nВнимание: отмена возможна только в течение 15 минут с момента оформления. Осталось ${Math.round(minutesLeft)} минут.`,
+      message: `Вы действительно хотите отменить заказ №${order.order_id}?\n\nВнимание: отмена возможна только в течение 15 минут с момента оформления. Осталось ${Math.round(Math.max(0, minutesLeft))} минут.`,
       onConfirm: async () => {
         try {
           await executeQuery(
@@ -178,12 +192,12 @@ export default function OrderScreen({ navigation }) {
     return colorMap[status] || '#999';
   };
 
-  // Функция форматирования даты с учётом часового пояса (исправлена)
+  // ========== ИСПРАВЛЕНО: Форматирование даты ==========
   const formatDate = (dateString) => {
     if (!dateString) return '—';
     const date = new Date(dateString);
     // Добавляем +3 часа для московского времени
-    const localDate = new Date(date.getTime() + 3 * 60 * 60 * 1000);
+    const localDate = new Date(date.getTime() + TIMEZONE_OFFSET);
     return localDate.toLocaleDateString('ru-RU', {
       day: '2-digit',
       month: '2-digit',
@@ -314,7 +328,7 @@ export default function OrderScreen({ navigation }) {
                   <Text style={styles.infoLabel}>Время для отмены:</Text>
                   <Text style={styles.infoValue}>
                     {cancellable 
-                      ? `Осталось ${Math.round(15 - ((new Date() - new Date(selectedOrder.created_at)) / (1000 * 60)))} мин`
+                      ? `Осталось ${Math.round(15 - ((new Date().getTime() - getLocalDate(selectedOrder.created_at).getTime()) / (1000 * 60)))} мин`
                       : 'Отмена недоступна'}
                   </Text>
                 </View>

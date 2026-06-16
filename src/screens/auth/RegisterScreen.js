@@ -34,6 +34,78 @@ export default function RegisterScreen({ navigation }) {
   const [enteredCode, setEnteredCode] = useState('');
   const [tempUserData, setTempUserData] = useState(null);
 
+  // Состояние для подсказок валидации
+  const [passwordErrors, setPasswordErrors] = useState({
+    length: false,
+    uppercase: false,
+    lowercase: false,
+    digit: false,
+    special: false,
+  });
+  const [isPasswordFocused, setIsPasswordFocused] = useState(false);
+
+  // ===== ФОРМАТИРОВАНИЕ ТЕЛЕФОНА: +7 (XXX) XXX-XX-XX =====
+  const formatPhone = (text) => {
+    let cleaned = text.replace(/\D/g, '');
+    
+    if (cleaned.length > 11) cleaned = cleaned.slice(0, 11);
+    
+    let formatted = '';
+    if (cleaned.length === 0) {
+      formatted = '';
+    } else if (cleaned.length <= 1) {
+      formatted = '+' + cleaned;
+    } else if (cleaned.length <= 4) {
+      formatted = '+' + cleaned.slice(0, 1) + ' (' + cleaned.slice(1);
+    } else if (cleaned.length <= 7) {
+      formatted = '+' + cleaned.slice(0, 1) + ' (' + cleaned.slice(1, 4) + ') ' + cleaned.slice(4);
+    } else if (cleaned.length <= 9) {
+      formatted = '+' + cleaned.slice(0, 1) + ' (' + cleaned.slice(1, 4) + ') ' + cleaned.slice(4, 7) + '-' + cleaned.slice(7);
+    } else {
+      formatted = '+' + cleaned.slice(0, 1) + ' (' + cleaned.slice(1, 4) + ') ' + cleaned.slice(4, 7) + '-' + cleaned.slice(7, 9) + '-' + cleaned.slice(9, 11);
+    }
+    
+    return formatted;
+  };
+
+  // ===== ФОРМАТИРОВАНИЕ EMAIL =====
+  const formatEmail = (text) => {
+    return text.replace(/\s/g, '').toLowerCase();
+  };
+
+  // ===== ВАЛИДАЦИЯ ПАРОЛЯ =====
+  const validatePassword = (pass) => {
+    const errors = {
+      length: pass.length >= 6 && pass.length <= 15,
+      uppercase: /[A-Z]/.test(pass),
+      lowercase: /[a-z]/.test(pass),
+      digit: /[0-9]/.test(pass),
+      special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pass),
+    };
+    setPasswordErrors(errors);
+    return Object.values(errors).every(Boolean);
+  };
+
+  const handlePasswordChange = (text) => {
+    setPassword(text);
+    validatePassword(text);
+  };
+
+  const getPasswordRequirementText = () => {
+    const requirements = [
+      { key: 'length', text: 'От 6 до 15 символов' },
+      { key: 'uppercase', text: 'Заглавная латинская буква (A-Z)' },
+      { key: 'lowercase', text: 'Строчная латинская буква (a-z)' },
+      { key: 'digit', text: 'Цифра (0-9)' },
+      { key: 'special', text: 'Спецсимвол (!@#$%^&* и др.)' },
+    ];
+    
+    return requirements.map(req => ({
+      ...req,
+      passed: passwordErrors[req.key],
+    }));
+  };
+
   const generateCode = () => {
     return Math.floor(100000 + Math.random() * 900000).toString();
   };
@@ -63,10 +135,11 @@ export default function RegisterScreen({ navigation }) {
       return;
     }
 
-    if (password.length < 6) {
+    const isValid = validatePassword(password);
+    if (!isValid) {
       showGradientAlert({ 
         title: 'Ошибка', 
-        message: 'Пароль должен быть не менее 6 символов' 
+        message: 'Пароль не соответствует требованиям безопасности' 
       });
       return;
     }
@@ -75,7 +148,16 @@ export default function RegisterScreen({ navigation }) {
     if (!emailRegex.test(email)) {
       showGradientAlert({ 
         title: 'Ошибка', 
-        message: 'Введите корректный email' 
+        message: 'Введите корректный email (example@gmail.com)' 
+      });
+      return;
+    }
+
+    const phoneDigits = phone.replace(/\D/g, '');
+    if (phoneDigits.length < 11) {
+      showGradientAlert({ 
+        title: 'Ошибка', 
+        message: 'Введите полный номер телефона' 
       });
       return;
     }
@@ -138,7 +220,6 @@ export default function RegisterScreen({ navigation }) {
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.container}>
-          {/* Градиентный текст Sweet Paradise */}
           <MaskedView
             style={styles.maskedView}
             maskElement={
@@ -162,25 +243,29 @@ export default function RegisterScreen({ navigation }) {
               onChangeText={setFullName}
               editable={!loading}
             />
+            
             <TextInput
               style={styles.input}
-              placeholder="Номер телефона"
+              placeholder="+7 (XXX) XXX-XX-XX"
               placeholderTextColor="#828282"
               value={phone}
-              onChangeText={setPhone}
+              onChangeText={(text) => setPhone(formatPhone(text))}
               keyboardType="phone-pad"
               editable={!loading}
+              maxLength={18}
             />
+            
             <TextInput
               style={styles.input}
-              placeholder="Email"
+              placeholder="example@gmail.com"
               placeholderTextColor="#828282"
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(text) => setEmail(formatEmail(text))}
               autoCapitalize="none"
               keyboardType="email-address"
               editable={!loading}
             />
+            
             <View style={styles.passwordWrapper}>
               <TextInput
                 style={styles.passwordInput}
@@ -188,8 +273,10 @@ export default function RegisterScreen({ navigation }) {
                 placeholderTextColor="#828282"
                 secureTextEntry={!showPassword}
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={handlePasswordChange}
                 editable={!loading}
+                onFocus={() => setIsPasswordFocused(true)}
+                onBlur={() => setIsPasswordFocused(false)}
               />
               <TouchableOpacity
                 style={styles.eyeIcon}
@@ -202,6 +289,27 @@ export default function RegisterScreen({ navigation }) {
                 />
               </TouchableOpacity>
             </View>
+
+            {(isPasswordFocused || password.length > 0) && (
+              <View style={styles.passwordRequirements}>
+                {getPasswordRequirementText().map((req, index) => (
+                  <View key={index} style={styles.requirementRow}>
+                    <Ionicons
+                      name={req.passed ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={16}
+                      color={req.passed ? '#4CAF50' : '#999'}
+                    />
+                    <Text style={[
+                      styles.requirementText,
+                      req.passed && styles.requirementPassed
+                    ]}>
+                      {req.text}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
             <View style={styles.passwordWrapper}>
               <TextInput
                 style={styles.passwordInput}
@@ -223,6 +331,10 @@ export default function RegisterScreen({ navigation }) {
                 />
               </TouchableOpacity>
             </View>
+
+            {password.length > 0 && confirmPassword.length > 0 && password !== confirmPassword && (
+              <Text style={styles.errorText}>Пароли не совпадают</Text>
+            )}
           </View>
 
           <TouchableOpacity 
@@ -230,7 +342,9 @@ export default function RegisterScreen({ navigation }) {
             onPress={() => setAcceptedTerms(!acceptedTerms)}
           >
             <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
-              {acceptedTerms && <Text style={styles.checkboxTick}>✓</Text>}
+              {acceptedTerms && (
+                <Ionicons name="checkmark" size={16} color="#fff" />
+              )}
             </View>
             <Text style={styles.termsText}>
               Я принимаю условия{' '}
@@ -404,6 +518,30 @@ const styles = StyleSheet.create({
   eyeIcon: {
     padding: 5,
   },
+  passwordRequirements: {
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  requirementRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  requirementText: {
+    fontSize: 12,
+    color: '#999',
+    marginLeft: 6,
+    fontFamily: Platform.OS === 'ios' ? 'Poppins' : 'Poppins',
+  },
+  requirementPassed: {
+    color: '#4CAF50',
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#F44336',
+    marginBottom: 12,
+    fontFamily: Platform.OS === 'ios' ? 'Poppins' : 'Poppins',
+  },
   termsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -419,14 +557,11 @@ const styles = StyleSheet.create({
     marginRight: 10,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'transparent',
   },
   checkboxChecked: {
-    backgroundColor: '#FFBCD9',
-  },
-  checkboxTick: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: 'bold',
+    backgroundColor: '#FF147A',
+    borderColor: '#FF147A',
   },
   termsText: {
     flex: 1,
@@ -435,7 +570,7 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Poppins' : 'Poppins',
   },
   termsLink: {
-    color: '#FFBCD9',
+    color: '#FF147A',
     textDecorationLine: 'underline',
   },
   registerButton: {
@@ -533,7 +668,7 @@ const styles = StyleSheet.create({
   termsModalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#FFBCD9',
+    color: '#FF147A',
     textAlign: 'center',
     marginBottom: 15,
   },
@@ -546,7 +681,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   termsCloseButton: {
-    backgroundColor: '#FFBCD9',
+    backgroundColor: '#FF147A',
     paddingVertical: 10,
     borderRadius: 10,
     alignItems: 'center',

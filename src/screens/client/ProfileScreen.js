@@ -33,19 +33,14 @@ export default function ProfileScreen({ navigation }) {
     email: '',
   });
   
-  // Данные для карты лояльности
   const [loyaltyPoints, setLoyaltyPoints] = useState(0);
   const [personalDiscount, setPersonalDiscount] = useState(0);
   const [pointsToSpend, setPointsToSpend] = useState(0);
-  
-  // Офлайн-заказы
   const [offlineOrdersCount, setOfflineOrdersCount] = useState(0);
   
-  // Выпадающий список для точки самовывоза
   const [showPickupModal, setShowPickupModal] = useState(false);
   const [selectedPickup, setSelectedPickup] = useState('г. Таганрог, ул. Петровская 711');
   
-  // Админ-панель
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [adminTab, setAdminTab] = useState('orders');
   const [adminOrders, setAdminOrders] = useState([]);
@@ -54,7 +49,6 @@ export default function ProfileScreen({ navigation }) {
   const [adminPromotions, setAdminPromotions] = useState([]);
   const [adminLoading, setAdminLoading] = useState(false);
   
-  // Форма для товара
   const [productModalVisible, setProductModalVisible] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [productForm, setProductForm] = useState({
@@ -62,7 +56,6 @@ export default function ProfileScreen({ navigation }) {
     is_available: 1, is_customizable: 0, discount: 0
   });
   
-  // Форма для акции
   const [promoModalVisible, setPromoModalVisible] = useState(false);
   const [editingPromo, setEditingPromo] = useState(null);
   const [promoForm, setPromoForm] = useState({
@@ -115,7 +108,6 @@ export default function ProfileScreen({ navigation }) {
           setAvatar(savedAvatar);
         }
         
-        // Загружаем количество офлайн-заказов
         await loadOfflineOrdersCount();
       }
     } catch (error) {
@@ -366,16 +358,25 @@ export default function ProfileScreen({ navigation }) {
     showGradientAlert({ title: 'Успешно', message: 'Фото удалено' });
   };
 
+  // ===== ИСПРАВЛЕННАЯ ФУНКЦИЯ ВЫХОДА =====
   const handleLogout = () => {
     showGradientConfirm({
       title: 'Выход',
       message: 'Вы уверены, что хотите выйти из аккаунта?',
       onConfirm: async () => {
-        await AsyncStorage.clear();
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Login' }],
-        });
+        try {
+          await AsyncStorage.clear();
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Login' }],
+          });
+        } catch (error) {
+          console.error('Logout error:', error);
+          showGradientAlert({ 
+            title: 'Ошибка', 
+            message: 'Не удалось выйти из аккаунта' 
+          });
+        }
       },
     });
   };
@@ -767,7 +768,6 @@ export default function ProfileScreen({ navigation }) {
               <Text style={styles.userAddress}>{selectedPickup}</Text>
             </TouchableOpacity>
             
-            {/* Индикатор офлайн-заказов */}
             {offlineOrdersCount > 0 && (
               <TouchableOpacity 
                 style={styles.offlineBadge}
@@ -952,7 +952,6 @@ const styles = StyleSheet.create({
   avatarMenuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
   avatarMenuText: { fontSize: 16, color: '#2C2C2C', marginLeft: 12, fontFamily: 'Poppins-Regular' },
   
-  // Админ-панель стили
   adminPanel: { flex: 1, backgroundColor: '#F8F8F8' },
   adminHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
   adminTitle: { fontSize: 18, fontWeight: 'bold', color: '#FF147A' },

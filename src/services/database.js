@@ -121,6 +121,24 @@ export const initDatabase = async () => {
     `);
     console.log('[DB] Таблица users проверена');
 
+    // Создаём таблицу products, если её нет
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS products (
+        product_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name VARCHAR(255) NOT NULL,
+        description TEXT,
+        price DECIMAL(10,2) NOT NULL,
+        calories INTEGER DEFAULT 0,
+        category VARCHAR(100),
+        image_url VARCHAR(500),
+        is_available BOOLEAN DEFAULT 1,
+        is_customizable BOOLEAN DEFAULT 0,
+        discount INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('[DB] Таблица products проверена');
+
     // Создаём таблицу banners, если её нет
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS banners (
@@ -141,6 +159,101 @@ export const initDatabase = async () => {
     `);
     console.log('[DB] Таблица banners проверена');
 
+    // Создаём таблицу orders, если её нет
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS orders (
+        order_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        status VARCHAR(50) DEFAULT 'pending',
+        total_amount DECIMAL(10,2) NOT NULL,
+        pickup_address VARCHAR(500) NOT NULL,
+        desired_pickup_time TIMESTAMP NOT NULL,
+        payment_method VARCHAR(20) DEFAULT 'cash',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(user_id),
+        CHECK(total_amount >= 0)
+      )
+    `);
+    console.log('[DB] Таблица orders проверена');
+
+    // Создаём таблицу order_items, если её нет
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS order_items (
+        order_item_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        order_id INTEGER,
+        product_id INTEGER,
+        quantity INTEGER NOT NULL,
+        price_at_time DECIMAL(10,2) NOT NULL,
+        customization JSON,
+        FOREIGN KEY (order_id) REFERENCES orders(order_id),
+        FOREIGN KEY (product_id) REFERENCES products(product_id),
+        CHECK(quantity > 0)
+      )
+    `);
+    console.log('[DB] Таблица order_items проверена');
+
+    // Создаём таблицу cart_items, если её нет
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS cart_items (
+        cart_item_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        product_id INTEGER,
+        quantity INTEGER DEFAULT 1,
+        customization JSON,
+        added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(user_id),
+        FOREIGN KEY (product_id) REFERENCES products(product_id),
+        CHECK(quantity > 0)
+      )
+    `);
+    console.log('[DB] Таблица cart_items проверена');
+
+    // Создаём таблицу order_history, если её нет
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS order_history (
+        history_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        order_id INTEGER,
+        user_id INTEGER,
+        action VARCHAR(100) NOT NULL,
+        description TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (order_id) REFERENCES orders(order_id),
+        FOREIGN KEY (user_id) REFERENCES users(user_id)
+      )
+    `);
+    console.log('[DB] Таблица order_history проверена');
+
+    // Создаём таблицу loyalty_history, если её нет
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS loyalty_history (
+        history_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        points_change INTEGER NOT NULL,
+        reason VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(user_id)
+      )
+    `);
+    console.log('[DB] Таблица loyalty_history проверена');
+
+    // Создаём таблицу promotions, если её нет
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS promotions (
+        promotion_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name VARCHAR(255) NOT NULL,
+        type VARCHAR(50) NOT NULL,
+        value DECIMAL(10,2) NOT NULL,
+        product_id INTEGER,
+        start_date DATE NOT NULL,
+        end_date DATE NOT NULL,
+        is_active BOOLEAN DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (product_id) REFERENCES products(product_id)
+      )
+    `);
+    console.log('[DB] Таблица promotions проверена');
+
     // ===== ТАБЛИЦА ДЛЯ ОФЛАЙН-ЗАКАЗОВ =====
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS offline_orders (
@@ -153,55 +266,72 @@ export const initDatabase = async () => {
     `);
     console.log('[DB] Таблица offline_orders создана');
 
-    // ===== СОЗДАНИЕ ТЕСТОВОГО ПОЛЬЗОВАТЕЛЯ =====
-    const existingUser = await db.getAllAsync("SELECT * FROM users WHERE email = 'test@sweet.ru'");
-    if (existingUser.length === 0) {
-      const salt = bcrypt.genSaltSync(12);
-      const hashedPassword = bcrypt.hashSync('123456', salt);
-      
-      await db.runAsync(`
-        INSERT INTO users (email, full_name, phone, password_hash, role) 
-        VALUES ('test@sweet.ru', 'Тестовый Пользователь', '+79001234567', ?, 'client')
-      `, [hashedPassword]);
-      console.log('[DB] Тестовый пользователь создан (пароль: 123456)');
-    } else {
-      console.log('[DB] Тестовый пользователь уже существует');
-    }
+    // ===== СОЗДАНИЕ ПОЛЬЗОВАТЕЛЕЙ С ФИКСИРОВАННЫМИ ID =====
+    const usersData = [
+      { user_id: 1, email: 'test@sweet.ru', fullName: 'Тестовый Пользователь', phone: '+79001234567', role: 'client', points: 0, discount: 0 },
+      { user_id: 2, email: 'admin@sweetparadise.ru', fullName: 'Администратор', phone: '+79009999999', role: 'admin', points: 0, discount: 0 },
+      { user_id: 3, email: 'anna@sweet.ru', fullName: 'Иванова Анна Сергеевна', phone: '+79993334455', role: 'client', points: 1500, discount: 5 },
+    ];
 
-    // ===== СОЗДАНИЕ АДМИНИСТРАТОРА (ЧЕРЕЗ BCRYPT) =====
-    const adminEmail = 'admin@sweetparadise.ru';
-    const existingAdmin = await db.getAllAsync("SELECT * FROM users WHERE email = ?", [adminEmail]);
-    
-    if (existingAdmin.length === 0) {
-      console.log('[DB] Создание администратора через bcrypt...');
-      const salt = bcrypt.genSaltSync(12);
-      const hashedPassword = bcrypt.hashSync('123456', salt);
+    for (const userData of usersData) {
+      const existing = await db.getAllAsync('SELECT * FROM users WHERE email = ?', [userData.email]);
       
-      await db.runAsync(`
-        INSERT INTO users (email, full_name, phone, password_hash, role, loyalty_points, personal_discount, created_at) 
-        VALUES (?, 'Администратор', '+79009999999', ?, 'admin', 0, 0, datetime('now'))
-      `, [adminEmail, hashedPassword]);
-      
-      console.log('[DB] Администратор создан (пароль: 123456)');
-    } else {
-      // Проверяем, что хэш - это bcrypt (начинается с $2)
-      const admin = existingAdmin[0];
-      if (!admin.password_hash || !admin.password_hash.startsWith('$2')) {
-        console.log('[DB] Обновление пароля администратора...');
+      if (existing.length === 0) {
         const salt = bcrypt.genSaltSync(12);
         const hashedPassword = bcrypt.hashSync('123456', salt);
-        await db.runAsync(
-          "UPDATE users SET password_hash = ? WHERE email = ?",
-          [hashedPassword, adminEmail]
-        );
-        console.log('[DB] Пароль администратора обновлён');
+        
+        await db.runAsync(`
+          INSERT INTO users (user_id, email, full_name, phone, password_hash, role, loyalty_points, personal_discount, created_at) 
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        `, [
+          userData.user_id,
+          userData.email,
+          userData.fullName,
+          userData.phone,
+          hashedPassword,
+          userData.role,
+          userData.points,
+          userData.discount
+        ]);
+        
+        console.log('[DB] Создан пользователь:', userData.email, 'ID:', userData.user_id);
       } else {
-        console.log('[DB] Администратор уже существует');
+        // Если пользователь есть, но хэш не bcrypt - обновляем
+        const user = existing[0];
+        if (!user.password_hash || !user.password_hash.startsWith('$2')) {
+          const salt = bcrypt.genSaltSync(12);
+          const hashedPassword = bcrypt.hashSync('123456', salt);
+          await db.runAsync(
+            "UPDATE users SET password_hash = ? WHERE email = ?",
+            [hashedPassword, userData.email]
+          );
+          console.log('[DB] Обновлён пароль для:', userData.email);
+        }
       }
     }
 
-    // Проверяем и добавляем баннеры, если их нет
-    const existingBanners = await db.getAllAsync("SELECT COUNT(*) as count FROM banners");
+    // ===== ДОБАВЛЕНИЕ ТОВАРОВ =====
+    const existingProducts = await db.getAllAsync('SELECT COUNT(*) as count FROM products');
+    if (existingProducts[0].count === 0) {
+      console.log('[DB] Добавление товаров...');
+      await db.runAsync(`
+        INSERT INTO products (name, description, price, calories, category, image_url, is_available, is_customizable, discount) VALUES
+        ('Бант Классический', 'Нежное пирожное в форме банта с воздушным заварным кремом. Идеально подходит для утреннего кофе или чаепития.', 350, 320, 'pastries', 'images/bant_classic.jpg', 1, 0, 0),
+        ('Бант Мини', 'Маленькое удовольствие для тех, кто следит за фигурой.', 180, 180, 'pastries', 'images/bant_mini.jpg', 1, 0, 0),
+        ('Бант Жемчужный', 'Изысканное пирожное с жемчужным декором и нежной начинкой из маскарпоне.', 420, 380, 'pastries', 'images/bant_pearl.jpg', 1, 0, 0),
+        ('Бант Розовый', 'Романтичное розовое пирожное с шоколадной начинкой и клубничным муссом.', 390, 350, 'pastries', 'images/bant_pink.jpg', 1, 0, 0),
+        ('Баскский Чизкейк', 'Знаменитый баскский чизкейк с карамелизированной корочкой и нежной кремовой текстурой.', 2500, 480, 'cakes', 'images/basque.jpg', 1, 1, 0),
+        ('Бенто Торт', 'Компактный торт в японском стиле.', 1800, 420, 'cakes', 'images/bento.jpg', 1, 1, 0),
+        ('Брауни', 'Плотный шоколадный брауни с грецкими орехами и шоколадными каплями.', 1500, 520, 'cakes', 'images/brownie.jpg', 1, 0, 0),
+        ('Канеле', 'Французское пирожное с хрустящей карамельной корочкой и мягкой ванильной начинкой.', 350, 280, 'pastries', 'images/canele.jpg', 1, 0, 0),
+        ('Профитроль с Сыром', 'Нежные заварные пирожные с сырным кремом из сливочного сыра и пармезана.', 280, 250, 'pastries', 'images/choux_cheese.jpg', 1, 0, 0),
+        ('Шоколадное Печенье', 'Хрустящее шоколадное печенье с кусочками темного шоколада и какао.', 250, 210, 'cookies', 'images/cookies_choco.jpg', 1, 0, 0)
+      `);
+      console.log('[DB] Товары добавлены');
+    }
+
+    // ===== ДОБАВЛЕНИЕ БАННЕРОВ =====
+    const existingBanners = await db.getAllAsync('SELECT COUNT(*) as count FROM banners');
     if (existingBanners[0].count === 0) {
       console.log('[DB] Добавление баннеров...');
       await db.runAsync(`
@@ -213,6 +343,110 @@ export const initDatabase = async () => {
         ('Летние десерты', 'Легкие десерты', 'Фруктовые и ягодные', 'banners/banner_seasonal_summer.jpg', 'category', 'desserts', 'Попробовать', 5, 1)
       `);
       console.log('[DB] Баннеры добавлены');
+    }
+
+    // ===== ДОБАВЛЕНИЕ АКЦИЙ =====
+    const existingPromotions = await db.getAllAsync('SELECT COUNT(*) as count FROM promotions');
+    if (existingPromotions[0].count === 0) {
+      console.log('[DB] Добавление акций...');
+      await db.runAsync(`
+        INSERT INTO promotions (name, type, value, product_id, start_date, end_date, is_active) VALUES
+        ('Скидка на Прагу 10%', 'discount_percent', 10, 2, '2026-05-01', '2026-06-30', 1),
+        ('Скидка на эклеры 5%', 'discount_percent', 5, 7, '2026-05-01', '2026-06-30', 1),
+        ('Скидка на чизкейк', 'discount_fixed', 50, 6, '2026-05-01', '2026-06-30', 1),
+        ('Скидка на брауни', 'discount_fixed', 50, 20, '2026-05-01', '2026-06-30', 1),
+        ('Промокод SWEET10', 'discount_percent', 10, NULL, '2026-05-01', '2026-06-30', 1),
+        ('Скидка для новых клиентов', 'discount_percent', 20, NULL, '2026-05-01', '2026-06-30', 1),
+        ('День рождения', 'discount_percent', 10, NULL, '2026-01-01', '2026-12-31', 1),
+        ('Скидка пенсионерам', 'discount_percent', 5, NULL, '2026-01-01', '2026-12-31', 1)
+      `);
+      console.log('[DB] Акции добавлены');
+    }
+
+    // ===== ДОБАВЛЕНИЕ ТЕСТОВЫХ ЗАКАЗОВ =====
+    const existingOrders = await db.getAllAsync('SELECT COUNT(*) as count FROM orders');
+    if (existingOrders[0].count === 0) {
+      console.log('[DB] Добавление тестовых заказов...');
+      await db.runAsync(`
+        INSERT INTO orders (user_id, status, total_amount, pickup_address, desired_pickup_time, payment_method, created_at, updated_at) 
+        VALUES 
+        (1, 'completed', 1750, 'г. Таганрог, ул. Петровская, 711', '2026-05-01 15:00:00', 'card', '2026-05-01 10:00:00', '2026-05-01 15:00:00'),
+        (1, 'pending', 1800, 'г. Таганрог, ул. Петровская, 711', '2026-05-02 12:00:00', 'cash', '2026-05-02 11:00:00', '2026-05-02 12:00:00'),
+        (1, 'completed', 400, 'г. Таганрог, ул. Петровская, 711', '2026-05-03 18:00:00', 'card', '2026-05-03 09:00:00', '2026-05-03 18:00:00'),
+        (1, 'completed', 3000, 'г. Таганрог, ул. Петровская, 711', '2026-05-05 14:00:00', 'card', '2026-05-04 12:00:00', '2026-05-05 14:00:00'),
+        (3, 'completed', 2500, 'г. Таганрог, ул. Петровская, 711', '2026-06-01 15:00:00', 'card', '2026-06-01 10:00:00', '2026-06-01 15:00:00'),
+        (3, 'completed', 1800, 'г. Таганрог, ул. Чехова, 22', '2026-06-10 16:00:00', 'cash', '2026-06-10 11:00:00', '2026-06-10 16:00:00')
+      `);
+      console.log('[DB] Тестовые заказы добавлены');
+    }
+
+    // ===== ДОБАВЛЕНИЕ ТЕСТОВЫХ ЗАКАЗОВ В ИСТОРИЮ =====
+    const existingHistory = await db.getAllAsync('SELECT COUNT(*) as count FROM order_history');
+    if (existingHistory[0].count === 0) {
+      console.log('[DB] Добавление истории заказов...');
+      await db.runAsync(`
+        INSERT INTO order_history (order_id, action, description, created_at) VALUES
+        (1, 'status_changed', 'Заказ оформлен', '2026-05-01 10:00:00'),
+        (1, 'status_changed', 'Заказ оплачен', '2026-05-01 10:05:00'),
+        (1, 'status_changed', 'В производстве', '2026-05-01 11:00:00'),
+        (1, 'status_changed', 'Готов к выдаче', '2026-05-01 14:30:00'),
+        (2, 'status_changed', 'Заказ оформлен', '2026-05-02 11:00:00'),
+        (3, 'status_changed', 'Заказ оформлен', '2026-05-03 09:00:00'),
+        (4, 'status_changed', 'Заказ оформлен', '2026-05-04 12:00:00'),
+        (4, 'status_changed', 'В производстве', '2026-05-04 13:00:00')
+      `);
+      console.log('[DB] История заказов добавлена');
+    }
+
+    // ===== ДОБАВЛЕНИЕ ТЕСТОВЫХ ТОВАРОВ В ЗАКАЗЫ =====
+    const existingOrderItems = await db.getAllAsync('SELECT COUNT(*) as count FROM order_items');
+    if (existingOrderItems[0].count === 0) {
+      console.log('[DB] Добавление состава заказов...');
+      await db.runAsync(`
+        INSERT INTO order_items (order_id, product_id, quantity, price_at_time, customization) VALUES
+        (1, 5, 1, 2500, NULL),
+        (1, 4, 2, 250, '{"color":"розовый"}'),
+        (2, 2, 1, 1800, '{"size":"1.5кг"}'),
+        (3, 8, 1, 400, NULL),
+        (4, 2, 1, 1800, NULL),
+        (4, 6, 2, 300, NULL),
+        (4, 3, 1, 1400, NULL),
+        (5, 5, 1, 2500, NULL),
+        (6, 2, 1, 1800, NULL)
+      `);
+      console.log('[DB] Состав заказов добавлен');
+    }
+
+    // ===== ДОБАВЛЕНИЕ ТЕСТОВЫХ ЗАПИСЕЙ В КОРЗИНУ =====
+    const existingCartItems = await db.getAllAsync('SELECT COUNT(*) as count FROM cart_items');
+    if (existingCartItems[0].count === 0) {
+      console.log('[DB] Добавление тестовых товаров в корзину...');
+      await db.runAsync(`
+        INSERT INTO cart_items (user_id, product_id, quantity, customization) VALUES
+        (1, 2, 1, NULL),
+        (1, 5, 2, '{"color":"розовый","flavor":"клубника"}'),
+        (1, 9, 1, '{"cream":"шоколадный"}'),
+        (2, 6, 1, NULL),
+        (2, 7, 3, NULL)
+      `);
+      console.log('[DB] Товары в корзину добавлены');
+    }
+
+    // ===== ДОБАВЛЕНИЕ ТЕСТОВОЙ ИСТОРИИ ЛОЯЛЬНОСТИ =====
+    const existingLoyalty = await db.getAllAsync('SELECT COUNT(*) as count FROM loyalty_history');
+    if (existingLoyalty[0].count === 0) {
+      console.log('[DB] Добавление истории лояльности...');
+      await db.runAsync(`
+        INSERT INTO loyalty_history (user_id, points_change, reason) VALUES
+        (3, 500, 'Бонус за регистрацию'),
+        (3, 200, 'Заказ №101'),
+        (3, 300, 'Заказ №102'),
+        (3, -50, 'Списание баллов'),
+        (3, 100, 'Заказ №103'),
+        (3, 350, 'Заказ №104'),
+        (3, -200, 'Списание баллов')
+      `);
+      console.log('[DB] История лояльности добавлена');
     }
 
     return db;
