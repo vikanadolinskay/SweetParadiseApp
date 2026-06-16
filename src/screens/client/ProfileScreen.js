@@ -18,10 +18,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { getUserById, updateUserProfile, deleteUserAccount, executeQuery, getOfflineOrdersCount } from '../../services/database';
-import { showGradientAlert, showGradientConfirm } from '../../components/GradientAlert';
+import { showGradientAlert } from '../../components/GradientAlert';
 import QRCode from 'react-native-qrcode-svg';
 
-export default function ProfileScreen({ navigation }) {
+export default function ProfileScreen({ navigation, onAuthStateChange }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [avatar, setAvatar] = useState(null);
@@ -78,9 +78,29 @@ export default function ProfileScreen({ navigation }) {
     cancelled: 'Отменён'
   };
 
+  // Форсированное обновление для проверки авторизации
+  const [logoutTrigger, setLogoutTrigger] = useState(0);
+
   useEffect(() => {
     loadUserData();
   }, []);
+
+  // Проверка авторизации при каждом изменении logoutTrigger
+  useEffect(() => {
+    const checkAuth = async () => {
+      const userStr = await AsyncStorage.getItem('user');
+      if (!userStr) {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Login' }],
+        });
+        setTimeout(() => {
+          navigation.replace('Login');
+        }, 100);
+      }
+    };
+    checkAuth();
+  }, [logoutTrigger]);
 
   useEffect(() => {
     if (showAdminPanel && user?.role === 'admin') {
@@ -286,29 +306,45 @@ export default function ProfileScreen({ navigation }) {
     });
   };
 
-  // ===== 100% РАБОЧЕЕ УДАЛЕНИЕ ПРОФИЛЯ =====
+  // ============================================================
+  // 100% РАБОЧЕЕ УДАЛЕНИЕ ПРОФИЛЯ
+  // ============================================================
   const handleDeleteProfile = () => {
-    showGradientConfirm({
-      title: 'Удаление профиля',
-      message: 'Вы уверены, что хотите удалить профиль? Это действие необратимо.',
-      onConfirm: async () => {
-        try {
-          if (user?.user_id) {
-            await deleteUserAccount(user.user_id);
+    Alert.alert(
+      'Удаление профиля',
+      'Вы уверены, что хотите удалить профиль? Это действие необратимо.',
+      [
+        { text: 'Отмена', style: 'cancel' },
+        {
+          text: 'Удалить',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              if (user?.user_id) {
+                await deleteUserAccount(user.user_id);
+              }
+              await AsyncStorage.clear();
+              
+              // Обновляем состояние
+              if (onAuthStateChange) {
+                await onAuthStateChange();
+              }
+              setLogoutTrigger(prev => prev + 1);
+              
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Login' }],
+              });
+              setTimeout(() => {
+                navigation.replace('Login');
+              }, 200);
+            } catch (error) {
+              navigation.replace('Login');
+            }
           }
-          await AsyncStorage.clear();
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'Login' }],
-          });
-          setTimeout(() => {
-            navigation.replace('Login');
-          }, 100);
-        } catch (error) {
-          navigation.replace('Login');
         }
-      },
-    });
+      ]
+    );
   };
 
   const handleAvatarPress = () => {
@@ -362,26 +398,44 @@ export default function ProfileScreen({ navigation }) {
     showGradientAlert({ title: 'Успешно', message: 'Фото удалено' });
   };
 
-  // ===== 100% РАБОЧИЙ ВЫХОД =====
+  // ============================================================
+  // 100% РАБОЧИЙ ВЫХОД
+  // ============================================================
   const handleLogout = () => {
-    showGradientConfirm({
-      title: 'Выход',
-      message: 'Вы уверены, что хотите выйти из аккаунта?',
-      onConfirm: async () => {
-        try {
-          await AsyncStorage.clear();
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'Login' }],
-          });
-          setTimeout(() => {
-            navigation.replace('Login');
-          }, 100);
-        } catch (error) {
-          navigation.replace('Login');
+    Alert.alert(
+      'Выход',
+      'Вы уверены, что хотите выйти из аккаунта?',
+      [
+        { text: 'Отмена', style: 'cancel' },
+        {
+          text: 'Выйти',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await AsyncStorage.clear();
+              
+              // Обновляем состояние в App.js
+              if (onAuthStateChange) {
+                await onAuthStateChange();
+              }
+              
+              // Триггерим проверку авторизации
+              setLogoutTrigger(prev => prev + 1);
+              
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Login' }],
+              });
+              setTimeout(() => {
+                navigation.replace('Login');
+              }, 200);
+            } catch (error) {
+              navigation.replace('Login');
+            }
+          }
         }
-      },
-    });
+      ]
+    );
   };
 
   const handleSpendPoints = () => {
@@ -398,17 +452,23 @@ export default function ProfileScreen({ navigation }) {
       return;
     }
     
-    showGradientConfirm({
-      title: 'Списание баллов',
-      message: `Списать ${pointsToSpend} баллов?`,
-      onConfirm: async () => {
-        const newPoints = loyaltyPoints - pointsToSpend;
-        setLoyaltyPoints(newPoints);
-        await executeQuery('UPDATE users SET loyalty_points = ? WHERE user_id = ?', [newPoints, user.user_id]);
-        setPointsToSpend(0);
-        showGradientAlert({ title: 'Успешно', message: `Списано ${pointsToSpend} баллов` });
-      },
-    });
+    Alert.alert(
+      'Списание баллов',
+      `Списать ${pointsToSpend} баллов?`,
+      [
+        { text: 'Отмена', style: 'cancel' },
+        {
+          text: 'Списать',
+          onPress: async () => {
+            const newPoints = loyaltyPoints - pointsToSpend;
+            setLoyaltyPoints(newPoints);
+            await executeQuery('UPDATE users SET loyalty_points = ? WHERE user_id = ?', [newPoints, user.user_id]);
+            setPointsToSpend(0);
+            showGradientAlert({ title: 'Успешно', message: `Списано ${pointsToSpend} баллов` });
+          }
+        }
+      ]
+    );
   };
 
   const getLoyaltyCardNumber = () => {

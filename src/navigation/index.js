@@ -1,10 +1,9 @@
 // src/navigation/index.js
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { View, Text } from 'react-native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
@@ -24,9 +23,8 @@ const Tab = createBottomTabNavigator();
 
 // Градиентная иконка
 const GradientIcon = ({ name, size, focused }) => {
-  const IconComponent = require('react-native-vector-icons/MaterialIcons').default;
   if (!focused) {
-    return <IconComponent name={name} size={size} color="#CCCCCC" />;
+    return <Ionicons name={name} size={size} color="#CCCCCC" />;
   }
   return (
     <LinearGradient
@@ -35,7 +33,7 @@ const GradientIcon = ({ name, size, focused }) => {
       end={{ x: 1, y: 1 }}
       style={{ padding: 0 }}
     >
-      <IconComponent name={name} size={size} color="#fff" />
+      <Ionicons name={name} size={size} color="#fff" />
     </LinearGradient>
   );
 };
@@ -46,11 +44,11 @@ const ClientTabs = () => {
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, size }) => {
           let iconName;
-          if (route.name === 'Каталог') iconName = 'menu-book';
-          else if (route.name === 'Корзина') iconName = 'shopping-cart';
-          else if (route.name === 'Заказы') iconName = 'list-alt';
-          else if (route.name === 'Профиль') iconName = 'person';
-          return <GradientIcon name={iconName} size={24} focused={focused} />;
+          if (route.name === 'Каталог') iconName = focused ? 'grid' : 'grid-outline';
+          else if (route.name === 'Корзина') iconName = focused ? 'basket' : 'basket-outline';
+          else if (route.name === 'Заказы') iconName = focused ? 'list' : 'list-outline';
+          else if (route.name === 'Профиль') iconName = focused ? 'person' : 'person-outline';
+          return <Ionicons name={iconName} size={size} color={focused ? '#FF147A' : '#CCCCCC'} />;
         },
         tabBarActiveTintColor: '#FF147A',
         tabBarInactiveTintColor: '#CCCCCC',
@@ -77,13 +75,11 @@ const ClientTabs = () => {
   );
 };
 
-// ===== ИСПРАВЛЕННЫЙ ЭКСПОРТ =====
 export default function AppNavigator({ isLoggedIn, onAuthStateChange }) {
   return (
     <NavigationContainer>
       <Stack.Navigator initialRouteName={isLoggedIn ? "ClientTabs" : "Login"} screenOptions={{ headerShown: false }}>
         {!isLoggedIn ? (
-          // Не авторизован — только экраны входа
           <>
             <Stack.Screen name="Login">
               {(props) => <LoginScreen {...props} onLogin={onAuthStateChange} />}
@@ -91,7 +87,6 @@ export default function AppNavigator({ isLoggedIn, onAuthStateChange }) {
             <Stack.Screen name="Register" component={RegisterScreen} />
           </>
         ) : (
-          // Авторизован — все экраны
           <>
             <Stack.Screen name="ClientTabs" component={ClientTabs} />
             <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
