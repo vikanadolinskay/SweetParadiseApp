@@ -12,7 +12,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { createOrder } from '../../services/database';
+import { createOrderWithOffline } from '../../services/database';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { showGradientAlert } from '../../components/GradientAlert';
 
@@ -22,7 +22,15 @@ export default function CheckoutScreen({ route, navigation }) {
   const [loading, setLoading] = useState(false);
   
   const [pickupAddress, setPickupAddress] = useState(savedAddress || 'г. Таганрог, ул. Петровская 711');
-  const [pickupDate, setPickupDate] = useState(new Date());
+  
+  // Минимальная дата - через 2 дня
+  const getMinDate = () => {
+    const date = new Date();
+    date.setDate(date.getDate() + 2);
+    return date;
+  };
+  
+  const [pickupDate, setPickupDate] = useState(getMinDate());
   const [pickupTime, setPickupTime] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -41,6 +49,7 @@ export default function CheckoutScreen({ route, navigation }) {
   const [orderNumber, setOrderNumber] = useState(null);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [isOfflineOrder, setIsOfflineOrder] = useState(false);
 
   const pickupAddresses = [
     'г. Таганрог, ул. Петровская 711',
@@ -115,6 +124,20 @@ export default function CheckoutScreen({ route, navigation }) {
     });
   };
 
+  // Проверка даты (не раньше чем через 2 дня)
+  const isDateValid = () => {
+    const minDate = getMinDate();
+    const selectedDateTime = new Date(pickupDate);
+    selectedDateTime.setHours(pickupTime.getHours(), pickupTime.getMinutes(), 0, 0);
+    
+    const minDateOnly = new Date(minDate);
+    minDateOnly.setHours(0, 0, 0, 0);
+    const selectedDateOnly = new Date(selectedDateTime);
+    selectedDateOnly.setHours(0, 0, 0, 0);
+    
+    return selectedDateOnly >= minDateOnly;
+  };
+
   const handleSubmitOrder = async () => {
     if (!userId) {
       showGradientAlert({ 
@@ -122,6 +145,15 @@ export default function CheckoutScreen({ route, navigation }) {
         message: 'Пожалуйста, войдите в аккаунт' 
       });
       navigation.navigate('Login');
+      return;
+    }
+
+    // Проверка даты
+    if (!isDateValid()) {
+      showGradientAlert({ 
+        title: 'Ошибка', 
+        message: 'Дата получения должна быть не раньше чем через 2 дня' 
+      });
       return;
     }
 
@@ -159,7 +191,8 @@ export default function CheckoutScreen({ route, navigation }) {
         customization: item.customization,
       }));
 
-      const orderId = await createOrder(
+      // Используем createOrderWithOffline вместо createOrder
+      const result = await createOrderWithOffline(
         userId,
         total,
         pickupAddress,
@@ -168,11 +201,25 @@ export default function CheckoutScreen({ route, navigation }) {
         orderItems
       );
 
-      if (orderId) {
-        setOrderNumber(orderId);
-        setShowSuccessModal(true);
+      if (result.success) {
+        if (result.offline) {
+          // Заказ сохранён офлайн
+          setIsOfflineOrder(true);
+          setOrderNumber('ОФ-' + (result.offlineId || Date.now()));
+          setShowSuccessModal(true);
+          
+          showGradientAlert({ 
+            title: 'Офлайн-режим', 
+            message: result.message || 'Заказ сохранён и будет отправлен при подключении к интернету' 
+          });
+        } else {
+          // Заказ создан онлайн
+          setIsOfflineOrder(false);
+          setOrderNumber(result.orderId);
+          setShowSuccessModal(true);
+        }
       } else {
-        setErrorMessage('Не удалось создать заказ');
+        setErrorMessage(result.error || 'Не удалось создать заказ');
         setShowErrorModal(true);
       }
     } catch (error) {
@@ -244,16 +291,18 @@ export default function CheckoutScreen({ route, navigation }) {
         {/* Дата и время получения */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>ДАТА И ВРЕМЯ ПОЛУЧЕНИЯ</Text>
-          
-          <TouchableOpacity style={styles.dateTimeRow} onPress={() => setShowDatePicker(true)}>
-            <Ionicons name="calendar-outline" size={20} color="#FF147A" />
-            <Text style={styles.dateTimeText}>{formatDate(pickupDate)}</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.dateTimeRow} onPress={() => setShowTimePicker(true)}>
-            <Ionicons name="time-outline" size={20} color="#FF147A" />
-            <Text style={styles.dateTimeText}>{formatTime(pickupTime)}</Text>
-          </TouchableOpacity>
+          <View style={styles.dateTimeRow}>
+            <TouchableOpacity style={styles.dateTimeButton} onPress={() => setShowDatePicker(true)}>
+              <Ionicons name="calendar-outline" size={20} color="#FF147A" />
+              <Text style={styles.dateTimeText}>{formatDate(pickupDate)}</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.dateTimeButton} onPress={() => setShowTimePicker(true)}>
+              <Ionicons name="time-outline" size={20} color="#FF147A" />
+              <Text style={styles.dateTimeText}>{formatTime(pickupTime)}</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.hintText}>Минимальная дата получения: через 2 дня</Text>
         </View>
 
         {showDatePicker && (
@@ -261,11 +310,11 @@ export default function CheckoutScreen({ route, navigation }) {
             value={pickupDate}
             mode="date"
             display="default"
+            minimumDate={getMinDate()}
             onChange={(event, selectedDate) => {
               setShowDatePicker(false);
               if (selectedDate) setPickupDate(selectedDate);
             }}
-            minimumDate={new Date()}
           />
         )}
 
@@ -340,9 +389,9 @@ export default function CheckoutScreen({ route, navigation }) {
           ))}
         </View>
 
-        {/* Итого - белым цветом */}
+        {/* Итого */}
         <LinearGradient
-          colors={['#FFCBBB', '#FFCBBB']}
+          colors={['#FFBCD9', '#FFCBBB']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.totalGradient}
@@ -353,7 +402,7 @@ export default function CheckoutScreen({ route, navigation }) {
           </View>
         </LinearGradient>
 
-        {/* Кнопка подтверждения - градиентная */}
+        {/* Кнопка подтверждения */}
         <TouchableOpacity
           style={styles.confirmButton}
           onPress={handleSubmitOrder}
@@ -436,10 +485,10 @@ export default function CheckoutScreen({ route, navigation }) {
                 placeholderTextColor="#999"
                 keyboardType="numeric"
                 maxLength={3}
-                secureTextEntry={false}
-                value={showCvv ? cardCvv : (cardCvv ? cardCvv.replace(/./g, '*') : '')}
+                secureTextEntry={!showCvv}
                 onFocus={() => setShowCvv(true)}
                 onBlur={() => setShowCvv(false)}
+                value={cardCvv}
                 onChangeText={(text) => setCardCvv(formatCvv(text))}
               />
             </View>
@@ -475,6 +524,12 @@ export default function CheckoutScreen({ route, navigation }) {
             <Ionicons name="checkmark-circle" size={60} color="#4CAF50" />
             <Text style={styles.successTitle}>Заказ успешно оформлен!</Text>
             <Text style={styles.successNumber}>№ {orderNumber}</Text>
+            {isOfflineOrder && (
+              <Text style={styles.offlineBadge}>
+                <Ionicons name="cloud-outline" size={14} color="#FF9800" /> 
+                {' '}Сохранён офлайн
+              </Text>
+            )}
             <Text style={styles.successDate}>
               {formatDate(pickupDate)} в {formatTime(pickupTime)}
             </Text>
@@ -590,15 +645,28 @@ const styles = StyleSheet.create({
   },
   dateTimeRow: {
     flexDirection: 'row',
+    gap: 12,
+  },
+  dateTimeButton: {
+    flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
     paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
+    borderRadius: 10,
+    gap: 8,
   },
   dateTimeText: {
     fontSize: 14,
     color: '#2C2C2C',
-    marginLeft: 12,
+    fontFamily: 'Poppins-Regular',
+  },
+  hintText: {
+    fontSize: 11,
+    color: '#999',
+    marginTop: 8,
     fontFamily: 'Poppins-Regular',
   },
   paymentOption: {
@@ -826,6 +894,16 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FF147A',
     marginBottom: 12,
+  },
+  offlineBadge: {
+    fontSize: 12,
+    color: '#FF9800',
+    backgroundColor: '#FFF3E0',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 8,
+    overflow: 'hidden',
   },
   successDate: {
     fontSize: 13,

@@ -141,10 +141,21 @@ export const initDatabase = async () => {
     `);
     console.log('[DB] Таблица banners проверена');
 
-    // Создаём тестового пользователя с ХЭШИРОВАННЫМ паролем
+    // ===== ТАБЛИЦА ДЛЯ ОФЛАЙН-ЗАКАЗОВ =====
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS offline_orders (
+        offline_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        order_data TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        synced BOOLEAN DEFAULT 0
+      )
+    `);
+    console.log('[DB] Таблица offline_orders создана');
+
+    // ===== СОЗДАНИЕ ТЕСТОВОГО ПОЛЬЗОВАТЕЛЯ =====
     const existingUser = await db.getAllAsync("SELECT * FROM users WHERE email = 'test@sweet.ru'");
     if (existingUser.length === 0) {
-      // ХЭШИРУЕМ пароль '123456'
       const salt = bcrypt.genSaltSync(12);
       const hashedPassword = bcrypt.hashSync('123456', salt);
       
@@ -157,17 +168,36 @@ export const initDatabase = async () => {
       console.log('[DB] Тестовый пользователь уже существует');
     }
 
-    // Создаём администратора, если его нет
-    const existingAdmin = await db.getAllAsync("SELECT * FROM users WHERE email = 'admin@sweetparadise.ru'");
+    // ===== СОЗДАНИЕ АДМИНИСТРАТОРА (ЧЕРЕЗ BCRYPT) =====
+    const adminEmail = 'admin@sweetparadise.ru';
+    const existingAdmin = await db.getAllAsync("SELECT * FROM users WHERE email = ?", [adminEmail]);
+    
     if (existingAdmin.length === 0) {
+      console.log('[DB] Создание администратора через bcrypt...');
       const salt = bcrypt.genSaltSync(12);
       const hashedPassword = bcrypt.hashSync('123456', salt);
       
       await db.runAsync(`
-        INSERT INTO users (email, full_name, phone, password_hash, role) 
-        VALUES ('admin@sweetparadise.ru', 'Администратор', '+79009999999', ?, 'admin')
-      `, [hashedPassword]);
+        INSERT INTO users (email, full_name, phone, password_hash, role, loyalty_points, personal_discount, created_at) 
+        VALUES (?, 'Администратор', '+79009999999', ?, 'admin', 0, 0, datetime('now'))
+      `, [adminEmail, hashedPassword]);
+      
       console.log('[DB] Администратор создан (пароль: 123456)');
+    } else {
+      // Проверяем, что хэш - это bcrypt (начинается с $2)
+      const admin = existingAdmin[0];
+      if (!admin.password_hash || !admin.password_hash.startsWith('$2')) {
+        console.log('[DB] Обновление пароля администратора...');
+        const salt = bcrypt.genSaltSync(12);
+        const hashedPassword = bcrypt.hashSync('123456', salt);
+        await db.runAsync(
+          "UPDATE users SET password_hash = ? WHERE email = ?",
+          [hashedPassword, adminEmail]
+        );
+        console.log('[DB] Пароль администратора обновлён');
+      } else {
+        console.log('[DB] Администратор уже существует');
+      }
     }
 
     // Проверяем и добавляем баннеры, если их нет
@@ -385,7 +415,6 @@ export const createUser = async (email, fullName, phone, password) => {
     return { success: false, error: 'Email уже существует' };
   }
 
-  // ХЭШИРУЕМ ПАРОЛЬ (12 раундов - стандарт безопасности)
   const salt = bcrypt.genSaltSync(12);
   const hashedPassword = bcrypt.hashSync(password, salt);
   
@@ -428,7 +457,6 @@ export const authenticateUser = async (email, password) => {
     return { success: false, error: 'Пользователь не найден' };
   }
 
-  // ПРОВЕРЯЕМ ПАРОЛЬ ЧЕРЕЗ BCRYPT
   let isPasswordValid = false;
   try {
     isPasswordValid = bcrypt.compareSync(password, user.password_hash);
@@ -478,25 +506,14 @@ export const deleteUserAccount = async (userId) => {
   try {
     await dbConn.execAsync('BEGIN TRANSACTION');
     
-    // Удаляем корзину
     await dbConn.runAsync('DELETE FROM cart_items WHERE user_id = ?', [userId]);
-    
-    // Удаляем историю заказов
     await dbConn.runAsync('DELETE FROM order_history WHERE user_id = ?', [userId]);
-    
-    // Удаляем историю лояльности
     await dbConn.runAsync('DELETE FROM loyalty_history WHERE user_id = ?', [userId]);
-    
-    // Удаляем позиции заказов
     await dbConn.runAsync(`
       DELETE FROM order_items 
       WHERE order_id IN (SELECT order_id FROM orders WHERE user_id = ?)
     `, [userId]);
-    
-    // Удаляем заказы
     await dbConn.runAsync('DELETE FROM orders WHERE user_id = ?', [userId]);
-    
-    // Удаляем пользователя
     await dbConn.runAsync('DELETE FROM users WHERE user_id = ?', [userId]);
     
     await dbConn.execAsync('COMMIT');
@@ -541,6 +558,7 @@ export const getOrderItems = async (orderId) => {
   }));
 };
 
+// ========== СОЗДАНИЕ ЗАКАЗА ==========
 export const createOrder = async (userId, totalAmount, pickupAddress, desiredPickupTime, paymentMethod, items) => {
   const database = await getDb();
   if (!database) return null;
@@ -579,6 +597,136 @@ export const createOrder = async (userId, totalAmount, pickupAddress, desiredPic
     await database.execAsync('ROLLBACK');
     console.error('[ORDER] Ошибка создания заказа:', error);
     return null;
+  }
+};
+
+// ========== ОФЛАЙН-ФУНКЦИЯ СОЗДАНИЯ ЗАКАЗА ==========
+export const createOrderWithOffline = async (userId, totalAmount, pickupAddress, desiredPickupTime, paymentMethod, items) => {
+  const database = await getDb();
+  if (!database) return { success: false, error: 'База данных недоступна' };
+
+  try {
+    const orderId = await createOrder(userId, totalAmount, pickupAddress, desiredPickupTime, paymentMethod, items);
+    
+    if (orderId) {
+      console.log('[ORDER] Заказ создан онлайн, ID:', orderId);
+      return { success: true, orderId, offline: false };
+    } else {
+      throw new Error('Не удалось создать заказ');
+    }
+  } catch (error) {
+    console.log('[ORDER] Ошибка онлайн-создания, сохраняем офлайн:', error.message);
+    
+    try {
+      const orderData = JSON.stringify({
+        userId,
+        totalAmount,
+        pickupAddress,
+        desiredPickupTime,
+        paymentMethod,
+        items,
+        createdAt: new Date().toISOString()
+      });
+
+      const result = await database.runAsync(
+        `INSERT INTO offline_orders (user_id, order_data, created_at, synced)
+         VALUES (?, ?, datetime('now'), 0)`,
+        [userId, orderData]
+      );
+
+      console.log('[OFFLINE] Заказ сохранён в офлайн-очередь, ID:', result.lastInsertRowId);
+      return { 
+        success: true, 
+        offlineId: result.lastInsertRowId,
+        offline: true,
+        message: 'Заказ сохранён и будет отправлен при подключении к интернету'
+      };
+    } catch (offlineError) {
+      console.error('[OFFLINE] Ошибка сохранения офлайн-заказа:', offlineError);
+      return { success: false, error: 'Не удалось сохранить заказ' };
+    }
+  }
+};
+
+// ========== СИНХРОНИЗАЦИЯ ОФЛАЙН-ЗАКАЗОВ ==========
+export const syncOfflineOrders = async () => {
+  const database = await getDb();
+  if (!database) return { success: false, error: 'База данных недоступна' };
+
+  try {
+    const offlineOrders = await database.getAllAsync(
+      'SELECT offline_id, user_id, order_data FROM offline_orders WHERE synced = 0 ORDER BY created_at ASC'
+    );
+
+    if (offlineOrders.length === 0) {
+      console.log('[SYNC] Нет офлайн-заказов для синхронизации');
+      return { success: true, synced: 0 };
+    }
+
+    console.log('[SYNC] Начинаем синхронизацию', offlineOrders.length, 'заказов');
+    let syncedCount = 0;
+
+    for (const offlineOrder of offlineOrders) {
+      try {
+        const orderData = JSON.parse(offlineOrder.order_data);
+        
+        const orderId = await createOrder(
+          orderData.userId,
+          orderData.totalAmount,
+          orderData.pickupAddress,
+          orderData.desiredPickupTime,
+          orderData.paymentMethod,
+          orderData.items
+        );
+
+        if (orderId) {
+          await database.runAsync(
+            'UPDATE offline_orders SET synced = 1 WHERE offline_id = ?',
+            [offlineOrder.offline_id]
+          );
+          syncedCount++;
+          console.log('[SYNC] Заказ', offlineOrder.offline_id, 'синхронизирован, ID:', orderId);
+        }
+      } catch (error) {
+        console.error('[SYNC] Ошибка синхронизации заказа', offlineOrder.offline_id, error);
+      }
+    }
+
+    return { success: true, synced: syncedCount, total: offlineOrders.length };
+  } catch (error) {
+    console.error('[SYNC] Ошибка синхронизации:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// ========== ПОЛУЧЕНИЕ КОЛИЧЕСТВА ОФЛАЙН-ЗАКАЗОВ ==========
+export const getOfflineOrdersCount = async () => {
+  const database = await getDb();
+  if (!database) return 0;
+
+  try {
+    const result = await database.getAllAsync(
+      'SELECT COUNT(*) as count FROM offline_orders WHERE synced = 0'
+    );
+    return result[0]?.count || 0;
+  } catch (error) {
+    console.error('[OFFLINE] Ошибка получения количества:', error);
+    return 0;
+  }
+};
+
+// ========== ПОЛУЧЕНИЕ ВСЕХ ОФЛАЙН-ЗАКАЗОВ ==========
+export const getOfflineOrders = async () => {
+  const database = await getDb();
+  if (!database) return [];
+
+  try {
+    return await database.getAllAsync(
+      'SELECT offline_id, user_id, order_data, created_at, synced FROM offline_orders ORDER BY created_at DESC'
+    );
+  } catch (error) {
+    console.error('[OFFLINE] Ошибка получения офлайн-заказов:', error);
+    return [];
   }
 };
 
@@ -644,6 +792,10 @@ export default {
   getOrdersByUserId,
   getOrderItems,
   createOrder,
+  createOrderWithOffline,
+  syncOfflineOrders,
+  getOfflineOrdersCount,
+  getOfflineOrders,
   updateOrderStatus,
   getPromotions,
   getPopularProducts,

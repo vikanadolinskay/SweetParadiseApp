@@ -17,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
-import { getUserById, updateUserProfile, deleteUserAccount, executeQuery } from '../../services/database';
+import { getUserById, updateUserProfile, deleteUserAccount, executeQuery, getOfflineOrdersCount } from '../../services/database';
 import { showGradientAlert, showGradientConfirm } from '../../components/GradientAlert';
 import QRCode from 'react-native-qrcode-svg';
 
@@ -37,6 +37,9 @@ export default function ProfileScreen({ navigation }) {
   const [loyaltyPoints, setLoyaltyPoints] = useState(0);
   const [personalDiscount, setPersonalDiscount] = useState(0);
   const [pointsToSpend, setPointsToSpend] = useState(0);
+  
+  // Офлайн-заказы
+  const [offlineOrdersCount, setOfflineOrdersCount] = useState(0);
   
   // Выпадающий список для точки самовывоза
   const [showPickupModal, setShowPickupModal] = useState(false);
@@ -111,11 +114,23 @@ export default function ProfileScreen({ navigation }) {
         if (savedAvatar) {
           setAvatar(savedAvatar);
         }
+        
+        // Загружаем количество офлайн-заказов
+        await loadOfflineOrdersCount();
       }
     } catch (error) {
       console.error('Error loading user:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadOfflineOrdersCount = async () => {
+    try {
+      const count = await getOfflineOrdersCount();
+      setOfflineOrdersCount(count);
+    } catch (error) {
+      console.error('Error loading offline orders count:', error);
     }
   };
 
@@ -751,6 +766,24 @@ export default function ProfileScreen({ navigation }) {
             <TouchableOpacity onPress={() => setShowPickupModal(true)}>
               <Text style={styles.userAddress}>{selectedPickup}</Text>
             </TouchableOpacity>
+            
+            {/* Индикатор офлайн-заказов */}
+            {offlineOrdersCount > 0 && (
+              <TouchableOpacity 
+                style={styles.offlineBadge}
+                onPress={() => {
+                  showGradientAlert({ 
+                    title: 'Офлайн-заказы', 
+                    message: `У вас ${offlineOrdersCount} заказ(ов), ожидающих отправки. Они будут отправлены при подключении к интернету.` 
+                  });
+                }}
+              >
+                <Ionicons name="cloud-outline" size={16} color="#FF9800" />
+                <Text style={styles.offlineBadgeText}>
+                  {offlineOrdersCount} заказ(ов) ожидают отправки
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           <View style={styles.section}>
@@ -856,6 +889,23 @@ const styles = StyleSheet.create({
   roleBadge: { backgroundColor: '#FFE4E1', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20, marginTop: 8 },
   roleText: { fontSize: 12, color: '#FF147A', fontWeight: '500' },
   userAddress: { fontSize: 14, color: '#FF147A', marginTop: 4, textAlign: 'center', fontFamily: 'Poppins-Regular' },
+  offlineBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF3E0',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#FFE0B2',
+  },
+  offlineBadgeText: {
+    fontSize: 12,
+    color: '#FF9800',
+    marginLeft: 8,
+    fontFamily: 'Poppins-Medium',
+  },
   section: { padding: 16, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
   sectionTitle: { fontSize: 14, fontWeight: '600', color: '#FF147A', marginBottom: 12, fontFamily: 'Poppins-SemiBold' },
   infoRow: { flexDirection: 'row', marginBottom: 12 },

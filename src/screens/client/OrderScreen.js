@@ -1,4 +1,3 @@
-// src/screens/client/OrderScreen.js
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
@@ -51,32 +50,36 @@ export default function OrderScreen({ navigation }) {
     }
   };
 
-  // Проверка, можно ли отменить заказ
+  // Функция для получения локального времени из UTC
+  const getLocalDate = (dateString) => {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    // Добавляем смещение часового пояса (+3 для Москвы)
+    return new Date(date.getTime() + date.getTimezoneOffset() * 60000 + 3 * 60 * 60 * 1000);
+  };
+
+  // Проверка, можно ли отменить заказ (исправлено с учётом часового пояса)
   const canCancelOrder = (order) => {
-    // Нельзя отменить уже отменённый или выполненный
     if (order.status === 'cancelled' || order.status === 'completed') {
       return false;
     }
     
-    // Нельзя отменить, если уже в производстве или готов
     if (order.status === 'preparing' || order.status === 'ready') {
       return false;
     }
     
-    // Для статусов pending и paid проверяем время
     if (cancellableStatuses.includes(order.status)) {
-      const createdAt = new Date(order.created_at);
+      const createdAt = getLocalDate(order.created_at);
       const now = new Date();
       const minutesDiff = (now - createdAt) / (1000 * 60);
       
-      // Можно отменить в течение 15 минут после создания
       return minutesDiff <= 15;
     }
     
     return false;
   };
 
-  // Получение сообщения о причине невозможности отмены
+  // Получение сообщения о причине невозможности отмены (исправлено)
   const getCancelReason = (order) => {
     if (order.status === 'cancelled') return 'Заказ уже отменён';
     if (order.status === 'completed') return 'Выполненный заказ нельзя отменить';
@@ -84,13 +87,13 @@ export default function OrderScreen({ navigation }) {
     if (order.status === 'ready') return 'Заказ готов к выдаче, отмена невозможна';
     
     if (order.status === 'pending' || order.status === 'paid') {
-      const createdAt = new Date(order.created_at);
+      const createdAt = getLocalDate(order.created_at);
       const now = new Date();
       const minutesDiff = (now - createdAt) / (1000 * 60);
       const remainingMinutes = Math.round(15 - minutesDiff);
       
       if (minutesDiff > 15) {
-        return `Истекло время отмены (15 минут). Заказ передан в обработку`;
+        return 'Истекло время отмены (15 минут). Заказ передан в обработку';
       }
       return `Отмена возможна в течение 15 минут. Осталось ${remainingMinutes} мин`;
     }
@@ -109,14 +112,15 @@ export default function OrderScreen({ navigation }) {
       return;
     }
 
-    const minutesLeft = 15 - ((new Date() - new Date(order.created_at)) / (1000 * 60));
+    const createdAt = getLocalDate(order.created_at);
+    const now = new Date();
+    const minutesLeft = 15 - ((now - createdAt) / (1000 * 60));
     
     showGradientConfirm({
       title: 'Отмена заказа',
       message: `Вы действительно хотите отменить заказ №${order.order_id}?\n\nВнимание: отмена возможна только в течение 15 минут с момента оформления. Осталось ${Math.round(minutesLeft)} минут.`,
       onConfirm: async () => {
         try {
-          // Обновляем статус заказа
           await executeQuery(
             `UPDATE orders 
              SET status = 'cancelled', 
@@ -125,7 +129,6 @@ export default function OrderScreen({ navigation }) {
             [order.order_id]
           );
           
-          // Добавляем запись в историю
           await executeQuery(
             `INSERT INTO order_history (order_id, action, description, created_at)
              VALUES (?, 'status_changed', 'Заказ отменён пользователем', datetime('now'))`,
@@ -175,10 +178,13 @@ export default function OrderScreen({ navigation }) {
     return colorMap[status] || '#999';
   };
 
+  // Функция форматирования даты с учётом часового пояса (исправлена)
   const formatDate = (dateString) => {
     if (!dateString) return '—';
     const date = new Date(dateString);
-    return date.toLocaleDateString('ru-RU', {
+    // Добавляем +3 часа для московского времени
+    const localDate = new Date(date.getTime() + 3 * 60 * 60 * 1000);
+    return localDate.toLocaleDateString('ru-RU', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',

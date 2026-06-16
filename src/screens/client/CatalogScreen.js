@@ -14,14 +14,15 @@ import {
   Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { getProducts, addToCart, getBanners, getCartItems, updateCartQuantity, removeFromCart } from '../../services/database';
+import { getProducts, addToCart, getBanners, getCartItems, updateCartQuantity, removeFromCart, getOfflineOrdersCount } from '../../services/database';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { showGradientAlert } from '../../components/GradientAlert';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 48) / 2;
-const BANNER_HEIGHT = 180;
+const BANNER_HEIGHT = 170;
+const BANNER_WIDTH = width - 32;
 
 let productsCache = null;
 let lastFetch = 0;
@@ -61,6 +62,8 @@ export default function CatalogScreen({ navigation }) {
   const [userId, setUserId] = useState(null);
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
   const [cartItems, setCartItems] = useState({});
+  const [isScrolling, setIsScrolling] = useState(false);
+  const [offlineOrdersCount, setOfflineOrdersCount] = useState(0);
   const flatListRef = useRef(null);
   const autoScrollInterval = useRef(null);
 
@@ -90,6 +93,7 @@ export default function CatalogScreen({ navigation }) {
     getUserIdAndCart();
     loadBanners();
     loadProducts();
+    loadOfflineOrdersCount();
   }, []);
 
   useEffect(() => {
@@ -106,18 +110,27 @@ export default function CatalogScreen({ navigation }) {
   const startAutoScroll = () => {
     if (autoScrollInterval.current) clearInterval(autoScrollInterval.current);
     autoScrollInterval.current = setInterval(() => {
-      if (banners.length > 0) {
+      if (banners.length > 0 && !isScrolling) {
         const nextIndex = (currentBannerIndex + 1) % banners.length;
-        flatListRef.current?.scrollToIndex({ index: nextIndex, animated: true });
-        setCurrentBannerIndex(nextIndex);
+        scrollToIndex(nextIndex);
       }
-    }, 5000);
+    }, 4000);
   };
 
   const stopAutoScroll = () => {
     if (autoScrollInterval.current) {
       clearInterval(autoScrollInterval.current);
       autoScrollInterval.current = null;
+    }
+  };
+
+  const scrollToIndex = (index) => {
+    if (flatListRef.current && banners[index]) {
+      flatListRef.current.scrollToIndex({
+        index,
+        animated: true,
+      });
+      setCurrentBannerIndex(index);
     }
   };
 
@@ -128,6 +141,15 @@ export default function CatalogScreen({ navigation }) {
       cartMap[item.product_id] = item.quantity;
     });
     setCartItems(cartMap);
+  };
+
+  const loadOfflineOrdersCount = async () => {
+    try {
+      const count = await getOfflineOrdersCount();
+      setOfflineOrdersCount(count);
+    } catch (error) {
+      console.error('Error loading offline orders count:', error);
+    }
   };
 
   const loadBanners = async () => {
@@ -181,6 +203,7 @@ export default function CatalogScreen({ navigation }) {
     await loadProducts();
     await loadBanners();
     if (userId) await loadCartItems(userId);
+    await loadOfflineOrdersCount();
     setRefreshing(false);
   }, [userId]);
 
@@ -214,17 +237,24 @@ export default function CatalogScreen({ navigation }) {
     }
   };
 
+  const onBannerPress = (banner) => {
+    if (banner.link_type === 'category' && banner.link_value) {
+      setSelectedCategory(banner.link_value);
+    } else if (banner.link_type === 'promotion') {
+      showGradientAlert({ 
+        title: 'Акция', 
+        message: banner.title || 'Подробнее в приложении' 
+      });
+    }
+  };
+
   const renderBanner = ({ item }) => {
     const imageSource = item.image_source || { uri: item.image_url || 'https://via.placeholder.com/800x200' };
     
     return (
       <TouchableOpacity
         style={styles.bannerContainer}
-        onPress={() => {
-          if (item.link_type === 'category' && item.link_value) {
-            setSelectedCategory(item.link_value);
-          }
-        }}
+        onPress={() => onBannerPress(item)}
         activeOpacity={0.9}
       >
         <Image source={imageSource} style={styles.bannerImage} resizeMode="cover" />
@@ -298,6 +328,27 @@ export default function CatalogScreen({ navigation }) {
     setShowSortMenu(false);
   };
 
+  // Обработка окончания прокрутки баннеров
+  const onBannerScrollEnd = (event) => {
+    const contentOffset = event.nativeEvent.contentOffset;
+    const index = Math.round(contentOffset.x / width);
+    if (index >= 0 && index < banners.length) {
+      setCurrentBannerIndex(index);
+    }
+    setIsScrolling(false);
+    // Возобновляем автопрокрутку через 3 секунды
+    setTimeout(() => {
+      if (banners.length > 1) {
+        startAutoScroll();
+      }
+    }, 3000);
+  };
+
+  const onBannerScrollBegin = () => {
+    setIsScrolling(true);
+    stopAutoScroll();
+  };
+
   if (loading && !refreshing) {
     return (
       <View style={styles.center}>
@@ -338,36 +389,32 @@ export default function CatalogScreen({ navigation }) {
             ref={flatListRef}
             data={banners}
             renderItem={renderBanner}
-            keyExtractor={(item) => item.banner_id?.toString()}
+            keyExtractor={(item, index) => item.banner_id?.toString() || index.toString()}
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
+            snapToAlignment="center"
             snapToInterval={width}
             decelerationRate="fast"
-            onScroll={(event) => {
-              const index = Math.round(event.nativeEvent.contentOffset.x / width);
-              setCurrentBannerIndex(index);
-            }}
-            onScrollBeginDrag={stopAutoScroll}
-            onScrollEndDrag={startAutoScroll}
+            onScrollBeginDrag={onBannerScrollBegin}
+            onMomentumScrollEnd={onBannerScrollEnd}
             scrollEventThrottle={16}
-            getItemLayout={(data, index) => ({
-              length: width,
-              offset: width * index,
-              index,
-            })}
+            style={styles.bannerFlatList}
+            contentContainerStyle={styles.bannerContent}
           />
-          <View style={styles.dotContainer}>
-            {banners.map((_, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.dot,
-                  currentBannerIndex === index ? styles.activeDot : styles.inactiveDot,
-                ]}
-              />
-            ))}
-          </View>
+          {banners.length > 1 && (
+            <View style={styles.dotContainer}>
+              {banners.map((_, index) => (
+                <View
+                  key={index}
+                  style={[
+                    styles.dot,
+                    currentBannerIndex === index ? styles.activeDot : styles.inactiveDot,
+                  ]}
+                />
+              ))}
+            </View>
+          )}
         </View>
       )}
 
@@ -381,7 +428,7 @@ export default function CatalogScreen({ navigation }) {
         contentContainerStyle={styles.categoriesList}
       />
 
-      {/* Список товаров - сетка 2 колонки */}
+      {/* Список товаров */}
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.product_id?.toString() || item.id?.toString()}
@@ -399,6 +446,24 @@ export default function CatalogScreen({ navigation }) {
           </View>
         }
       />
+
+      {/* Индикатор офлайн-заказов */}
+      {offlineOrdersCount > 0 && (
+        <TouchableOpacity 
+          style={styles.offlineBadge}
+          onPress={() => {
+            showGradientAlert({ 
+              title: 'Офлайн-заказы', 
+              message: `У вас ${offlineOrdersCount} заказ(ов), ожидающих отправки. Они будут отправлены при подключении к интернету.` 
+            });
+          }}
+        >
+          <Ionicons name="cloud-outline" size={16} color="#FF9800" />
+          <Text style={styles.offlineBadgeText}>
+            {offlineOrdersCount} заказ(ов) ожидают отправки
+          </Text>
+        </TouchableOpacity>
+      )}
 
       <Modal
         animationType="fade"
@@ -484,22 +549,29 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 4,
   },
+  bannerFlatList: {
+    paddingHorizontal: 16,
+  },
+  bannerContent: {
+    paddingHorizontal: 0,
+  },
   bannerContainer: {
-    width: width,
+    width: BANNER_WIDTH,
     height: BANNER_HEIGHT,
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginRight: 0,
   },
   bannerImage: {
-    width: width - 32,
-    height: BANNER_HEIGHT,
-    borderRadius: 12,
+    width: '100%',
+    height: '100%',
     backgroundColor: '#F0F0F0',
-    alignSelf: 'center',
   },
   dotContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 10,
     marginBottom: 4,
   },
   dot: {
@@ -510,7 +582,7 @@ const styles = StyleSheet.create({
   },
   activeDot: {
     backgroundColor: '#FF147A',
-    width: 16,
+    width: 20,
   },
   inactiveDot: {
     backgroundColor: '#CCCCCC',
@@ -644,6 +716,32 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
     color: '#999',
+  },
+  offlineBadge: {
+    position: 'absolute',
+    bottom: 20,
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF3E0',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FFE0B2',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  offlineBadgeText: {
+    fontSize: 12,
+    color: '#FF9800',
+    marginLeft: 8,
+    fontFamily: 'Poppins-Medium',
   },
   modalOverlay: {
     flex: 1,
