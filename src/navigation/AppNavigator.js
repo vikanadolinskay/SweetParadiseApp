@@ -2,6 +2,7 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Клиентские экраны
 import CatalogScreen from '../screens/client/CatalogScreen';
@@ -11,7 +12,7 @@ import ProfileScreen from '../screens/client/ProfileScreen';
 import ProductDetailScreen from '../screens/client/ProductDetailScreen';
 import CheckoutScreen from '../screens/client/CheckoutScreen';
 
-// Экран регистрации (переделать в навигатор)
+// Экран регистрации
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 
@@ -83,6 +84,26 @@ function AdminTabs() {
 }
 
 export default function AppNavigator({ isLoggedIn, onAuthStateChange }) {
+  const [isAdmin, setIsAdmin] = React.useState(false);
+
+  React.useEffect(() => {
+    const checkRole = async () => {
+      try {
+        const userStr = await AsyncStorage.getItem('user');
+        if (userStr) {
+          const user = JSON.parse(userStr);
+          setIsAdmin(user?.role === 'admin');
+        } else {
+          setIsAdmin(false);
+        }
+      } catch (error) {
+        console.error('Error checking role:', error);
+        setIsAdmin(false);
+      }
+    };
+    checkRole();
+  }, [isLoggedIn]);
+
   // Если не авторизован — показываем только экраны входа
   if (!isLoggedIn) {
     return (
@@ -98,7 +119,7 @@ export default function AppNavigator({ isLoggedIn, onAuthStateChange }) {
   // Если авторизован — показываем основное приложение
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="MainTabs" component={ClientTabs} />
+      <Stack.Screen name="MainTabs" component={isAdmin ? AdminTabs : ClientTabs} />
       <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
       <Stack.Screen name="Checkout" component={CheckoutScreen} />
     </Stack.Navigator>

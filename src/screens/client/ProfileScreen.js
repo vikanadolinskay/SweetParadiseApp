@@ -286,6 +286,7 @@ export default function ProfileScreen({ navigation }) {
     });
   };
 
+  // ===== ИСПРАВЛЕННАЯ ФУНКЦИЯ УДАЛЕНИЯ ПРОФИЛЯ =====
   const handleDeleteProfile = () => {
     showGradientConfirm({
       title: 'Удаление профиля',
@@ -300,8 +301,16 @@ export default function ProfileScreen({ navigation }) {
             index: 0,
             routes: [{ name: 'Login' }],
           });
+          showGradientAlert({ 
+            title: 'Успешно', 
+            message: 'Профиль удалён' 
+          });
         } catch (error) {
-          showGradientAlert({ title: 'Ошибка', message: 'Не удалось удалить профиль' });
+          console.error('Delete profile error:', error);
+          showGradientAlert({ 
+            title: 'Ошибка', 
+            message: 'Не удалось удалить профиль' 
+          });
         }
       },
     });
@@ -370,6 +379,7 @@ export default function ProfileScreen({ navigation }) {
             index: 0,
             routes: [{ name: 'Login' }],
           });
+          console.log('[LOGOUT] Пользователь вышел');
         } catch (error) {
           console.error('Logout error:', error);
           showGradientAlert({ 

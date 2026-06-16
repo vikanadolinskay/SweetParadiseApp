@@ -330,11 +330,16 @@ export default function CatalogScreen({ navigation }) {
     setShowSortMenu(false);
   };
 
+  // ===== ИСПРАВЛЕННАЯ ОБРАБОТКА ПРОКРУТКИ БАННЕРОВ =====
   const onBannerScrollEnd = (event) => {
     const contentOffset = event.nativeEvent.contentOffset;
-    const index = Math.round(contentOffset.x / (BANNER_WIDTH + BANNER_GAP));
-    if (index >= 0 && index < banners.length) {
-      setCurrentBannerIndex(index);
+    // Учитываем padding левого края (16)
+    const adjustedOffset = contentOffset.x + 16;
+    const index = Math.round(adjustedOffset / (BANNER_WIDTH + BANNER_GAP));
+    const validIndex = Math.min(Math.max(0, index), banners.length - 1);
+    
+    if (validIndex >= 0 && validIndex < banners.length) {
+      setCurrentBannerIndex(validIndex);
     }
     setIsScrolling(false);
     setTimeout(() => {
@@ -381,6 +386,7 @@ export default function CatalogScreen({ navigation }) {
         </TouchableOpacity>
       </LinearGradient>
 
+      {/* ===== ИСПРАВЛЕННЫЕ БАННЕРЫ ===== */}
       {banners.length > 0 && (
         <View style={styles.bannerWrapper}>
           <FlatList
@@ -391,7 +397,7 @@ export default function CatalogScreen({ navigation }) {
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
-            snapToAlignment="center"
+            snapToAlignment="start"
             snapToInterval={BANNER_WIDTH + BANNER_GAP}
             decelerationRate="fast"
             onScrollBeginDrag={onBannerScrollBegin}
@@ -399,6 +405,12 @@ export default function CatalogScreen({ navigation }) {
             scrollEventThrottle={16}
             style={styles.bannerFlatList}
             contentContainerStyle={styles.bannerContent}
+            // Добавляем getItemLayout для производительности
+            getItemLayout={(data, index) => ({
+              length: BANNER_WIDTH + BANNER_GAP,
+              offset: (BANNER_WIDTH + BANNER_GAP) * index,
+              index,
+            })}
           />
           {banners.length > 1 && (
             <View style={styles.dotContainer}>
@@ -560,11 +572,13 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     marginRight: BANNER_GAP,
+    backgroundColor: '#F0F0F0',
   },
   bannerImage: {
     width: '100%',
     height: '100%',
     backgroundColor: '#F0F0F0',
+    resizeMode: 'cover',
   },
   dotContainer: {
     flexDirection: 'row',
