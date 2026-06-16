@@ -56,7 +56,7 @@ const ClientTabs = () => {
         tabBarInactiveTintColor: '#CCCCCC',
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#FFFFFF', // ← белый фон вместо персикового
+          backgroundColor: '#FFFFFF',
           height: 60,
           paddingBottom: 8,
           paddingTop: 8,
@@ -77,55 +77,31 @@ const ClientTabs = () => {
   );
 };
 
-export default function AppNavigator() {
+// ===== ИСПРАВЛЕННЫЙ ЭКСПОРТ =====
+export default function AppNavigator({ isLoggedIn, onAuthStateChange }) {
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName="Login">
-        <Stack.Screen 
-          name="Login" 
-          component={LoginScreen} 
-          options={{ headerShown: false }} 
-        />
-        <Stack.Screen 
-          name="Register" 
-          component={RegisterScreen} 
-          options={{ headerShown: false }} 
-        />
-        <Stack.Screen 
-          name="ClientTabs" 
-          component={ClientTabs} 
-          options={{ headerShown: false }} 
-        />
-        <Stack.Screen 
-          name="ProductDetail" 
-          component={ProductDetailScreen} 
-          options={{ headerShown: false }} 
-        />
-        <Stack.Screen 
-          name="Customize1" 
-          component={CustomizeScreen1} 
-          options={{ headerShown: false }} 
-        />
-        <Stack.Screen 
-          name="Customize2" 
-          component={CustomizeScreen2} 
-          options={{ headerShown: false }} 
-        />
-        <Stack.Screen 
-          name="Customize3" 
-          component={CustomizeScreen3} 
-          options={{ headerShown: false }} 
-        />
-        <Stack.Screen 
-          name="Customize4" 
-          component={CustomizeScreen4} 
-          options={{ headerShown: false }} 
-        />
-        <Stack.Screen 
-          name="Checkout" 
-          component={CheckoutScreen} 
-          options={{ headerShown: false }} 
-        />
+      <Stack.Navigator initialRouteName={isLoggedIn ? "ClientTabs" : "Login"} screenOptions={{ headerShown: false }}>
+        {!isLoggedIn ? (
+          // Не авторизован — только экраны входа
+          <>
+            <Stack.Screen name="Login">
+              {(props) => <LoginScreen {...props} onLogin={onAuthStateChange} />}
+            </Stack.Screen>
+            <Stack.Screen name="Register" component={RegisterScreen} />
+          </>
+        ) : (
+          // Авторизован — все экраны
+          <>
+            <Stack.Screen name="ClientTabs" component={ClientTabs} />
+            <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
+            <Stack.Screen name="Customize1" component={CustomizeScreen1} />
+            <Stack.Screen name="Customize2" component={CustomizeScreen2} />
+            <Stack.Screen name="Customize3" component={CustomizeScreen3} />
+            <Stack.Screen name="Customize4" component={CustomizeScreen4} />
+            <Stack.Screen name="Checkout" component={CheckoutScreen} />
+          </>
+        )}
       </Stack.Navigator>
     </NavigationContainer>
   );

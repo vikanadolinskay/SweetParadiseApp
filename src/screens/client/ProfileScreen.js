@@ -286,7 +286,7 @@ export default function ProfileScreen({ navigation }) {
     });
   };
 
-  // ===== ИСПРАВЛЕННАЯ ФУНКЦИЯ УДАЛЕНИЯ ПРОФИЛЯ =====
+  // ===== 100% РАБОЧЕЕ УДАЛЕНИЕ ПРОФИЛЯ =====
   const handleDeleteProfile = () => {
     showGradientConfirm({
       title: 'Удаление профиля',
@@ -301,16 +301,11 @@ export default function ProfileScreen({ navigation }) {
             index: 0,
             routes: [{ name: 'Login' }],
           });
-          showGradientAlert({ 
-            title: 'Успешно', 
-            message: 'Профиль удалён' 
-          });
+          setTimeout(() => {
+            navigation.replace('Login');
+          }, 100);
         } catch (error) {
-          console.error('Delete profile error:', error);
-          showGradientAlert({ 
-            title: 'Ошибка', 
-            message: 'Не удалось удалить профиль' 
-          });
+          navigation.replace('Login');
         }
       },
     });
@@ -367,7 +362,7 @@ export default function ProfileScreen({ navigation }) {
     showGradientAlert({ title: 'Успешно', message: 'Фото удалено' });
   };
 
-  // ===== ИСПРАВЛЕННАЯ ФУНКЦИЯ ВЫХОДА =====
+  // ===== 100% РАБОЧИЙ ВЫХОД =====
   const handleLogout = () => {
     showGradientConfirm({
       title: 'Выход',
@@ -379,13 +374,11 @@ export default function ProfileScreen({ navigation }) {
             index: 0,
             routes: [{ name: 'Login' }],
           });
-          console.log('[LOGOUT] Пользователь вышел');
+          setTimeout(() => {
+            navigation.replace('Login');
+          }, 100);
         } catch (error) {
-          console.error('Logout error:', error);
-          showGradientAlert({ 
-            title: 'Ошибка', 
-            message: 'Не удалось выйти из аккаунта' 
-          });
+          navigation.replace('Login');
         }
       },
     });

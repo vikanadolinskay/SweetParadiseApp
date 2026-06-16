@@ -17,7 +17,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authenticateUser } from '../../services/database';
 import { showGradientAlert } from '../../components/GradientAlert';
 
-export default function LoginScreen({ navigation }) {
+// ===== ДОБАВЛЯЕМ onLogin В ПАРАМЕТРЫ =====
+export default function LoginScreen({ navigation, onLogin }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -49,6 +50,12 @@ export default function LoginScreen({ navigation }) {
     if (result.success) {
       await AsyncStorage.setItem('user', JSON.stringify(result.user));
       await AsyncStorage.setItem('isLoggedIn', 'true');
+      
+      // ===== ОБНОВЛЯЕМ СОСТОЯНИЕ В APP.JS =====
+      if (onLogin) {
+        await onLogin();
+      }
+      
       navigation.replace('ClientTabs');
     } else {
       showGradientAlert({ 
@@ -65,7 +72,6 @@ export default function LoginScreen({ navigation }) {
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.container}>
-          {/* Градиентный текст Sweet Paradise */}
           <MaskedView
             style={styles.maskedView}
             maskElement={
