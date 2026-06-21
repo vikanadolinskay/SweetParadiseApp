@@ -21,7 +21,6 @@ import * as ImagePicker from 'expo-image-picker';
 import { getUserById, updateUserProfile, deleteUserAccount, executeQuery, getOfflineOrdersCount, authenticateUser } from '../../services/database';
 import { showGradientAlert } from '../../components/GradientAlert';
 import QRCode from 'react-native-qrcode-svg';
-import bcrypt from 'react-native-bcrypt';
 
 export default function ProfileScreen({ navigation, onAuthStateChange }) {
   const [user, setUser] = useState(null);
@@ -311,6 +310,23 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
     loadAdminData();
   };
 
+  const resetUserPassword = async (userId, userName) => {
+    Alert.alert(
+      'Сброс пароля',
+      `Сбросить пароль для ${userName} на стандартный "123456"?`,
+      [
+        { text: 'Отмена', style: 'cancel' },
+        {
+          text: 'Сбросить',
+          onPress: async () => {
+            await executeQuery("UPDATE users SET password_hash = '123456' WHERE user_id = ?", [userId]);
+            showGradientAlert({ title: 'Успешно', message: 'Пароль сброшен на 123456' });
+          }
+        }
+      ]
+    );
+  };
+
   const handleChangePassword = async () => {
     const { currentPassword, newPassword, confirmPassword } = passwordForm;
     
@@ -336,17 +352,14 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
       return;
     }
     
-    const salt = bcrypt.genSaltSync(12);
-    const hashedPassword = bcrypt.hashSync(newPassword, salt);
-    
-    await executeQuery('UPDATE users SET password_hash = ? WHERE user_id = ?', [hashedPassword, user.user_id]);
+    await executeQuery('UPDATE users SET password_hash = ? WHERE user_id = ?', [newPassword, user.user_id]);
     
     showGradientAlert({ title: 'Успешно', message: 'Пароль изменён' });
     setShowPasswordModal(false);
     setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
   };
 
-  const handleEditProfile = () => {
+    const handleEditProfile = () => {
     setIsEditing(true);
   };
 
@@ -733,7 +746,7 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
     </>
   );
 
-  const renderUsersTab = () => (
+    const renderUsersTab = () => (
     <>
       <TouchableOpacity style={styles.adminRefreshBtn} onPress={loadAdminData}>
         <Text style={styles.adminRefreshText}>Обновить</Text>
@@ -771,6 +784,13 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
           >
             <Ionicons name="gift-outline" size={14} color="#FF147A" />
             <Text style={styles.adminEditUserText}>Бонусы и скидка</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.adminResetPasswordBtn}
+            onPress={() => resetUserPassword(u.user_id, u.full_name)}
+          >
+            <Ionicons name="key-outline" size={14} color="#FF9800" />
+            <Text style={styles.adminResetPasswordText}>Сбросить пароль</Text>
           </TouchableOpacity>
         </View>
       ))}
@@ -1317,6 +1337,8 @@ const styles = StyleSheet.create({
   adminMakeAdminText: { fontSize: 10, color: '#fff' },
   adminEditUserBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 10, paddingVertical: 6, gap: 6, backgroundColor: '#FFF0F5', borderRadius: 8 },
   adminEditUserText: { fontSize: 11, color: '#FF147A', fontWeight: '500' },
+  adminResetPasswordBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 6, paddingVertical: 6, gap: 6, backgroundColor: '#FFF3E0', borderRadius: 8 },
+  adminResetPasswordText: { fontSize: 11, color: '#FF9800', fontWeight: '500' },
   adminPromoCard: { backgroundColor: '#fff', borderRadius: 12, padding: 12, marginBottom: 10 },
   adminPromoHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   adminPromoName: { fontSize: 14, fontWeight: '600', color: '#333' },

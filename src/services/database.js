@@ -2,18 +2,15 @@
 import * as SQLite from 'expo-sqlite';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Asset } from 'expo-asset';
-import bcrypt from 'react-native-bcrypt';
 
 const DB_NAME = 'sweet.db';
 
 let db = null;
 
-// Функция для получения локального изображения
 const getLocalImage = (imagePath) => {
   if (!imagePath) return null;
   
   const imageMap = {
-    // Товары
     'images/bant_classic.jpg': require('../../assets/images/bant_classic.jpg'),
     'images/bant_mini.jpg': require('../../assets/images/bant_mini.jpg'),
     'images/bant_pearl.jpg': require('../../assets/images/bant_pearl.jpg'),
@@ -65,7 +62,6 @@ const getLocalImage = (imagePath) => {
     'images/tiramisu.jpg': require('../../assets/images/tiramisu.jpg'),
     'images/truffles.jpg': require('../../assets/images/truffles.jpg'),
     
-    // Баннеры
     'banners/banner_wedding_main.jpg': require('../../assets/images/banners/banner_wedding_main.jpg'),
     'banners/banner_sale_20.jpg': require('../../assets/images/banners/banner_sale_20.jpg'),
     'banners/banner_new_arrivals.jpg': require('../../assets/images/banners/banner_new_arrivals.jpg'),
@@ -133,13 +129,10 @@ export const initDatabase = async () => {
       )
     `);
 
-    // Проверяем, есть ли колонка weight (для старых БД)
     try {
       await db.execAsync(`ALTER TABLE products ADD COLUMN weight INTEGER DEFAULT 0`);
       console.log('[DB] Колонка weight добавлена');
-    } catch (e) {
-      // Колонка уже существует
-    }
+    } catch (e) {}
 
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS banners (
@@ -263,8 +256,7 @@ export const initDatabase = async () => {
       const existing = await db.getAllAsync('SELECT * FROM users WHERE email = ?', [userData.email]);
       
       if (existing.length === 0) {
-        const salt = bcrypt.genSaltSync(12);
-        const hashedPassword = bcrypt.hashSync('123456', salt);
+        const hashedPassword = '123456';
         
         await db.runAsync(`
           INSERT INTO users (user_id, email, full_name, phone, password_hash, role, loyalty_points, personal_discount, created_at) 
@@ -281,21 +273,9 @@ export const initDatabase = async () => {
         ]);
         
         console.log('[DB] Создан пользователь:', userData.email, 'ID:', userData.user_id);
-      } else {
-        const user = existing[0];
-        if (!user.password_hash || !user.password_hash.startsWith('$2')) {
-          const salt = bcrypt.genSaltSync(12);
-          const hashedPassword = bcrypt.hashSync('123456', salt);
-          await db.runAsync(
-            "UPDATE users SET password_hash = ? WHERE email = ?",
-            [hashedPassword, userData.email]
-          );
-          console.log('[DB] Обновлён пароль для:', userData.email);
-        }
       }
     }
-
-    // ===== ДОБАВЛЕНИЕ ТОВАРОВ =====
+        // ===== ДОБАВЛЕНИЕ ТОВАРОВ =====
     const existingProducts = await db.getAllAsync('SELECT COUNT(*) as count FROM products');
     if (existingProducts[0].count === 0) {
       console.log('[DB] Добавление товаров...');
@@ -586,8 +566,7 @@ export const createUser = async (email, fullName, phone, password) => {
     return { success: false, error: 'Email уже существует' };
   }
 
-  const salt = bcrypt.genSaltSync(12);
-  const hashedPassword = bcrypt.hashSync(password, salt);
+  const hashedPassword = password;
 
   const result = await dbConn.runAsync(
     `INSERT INTO users (email, full_name, phone, password_hash, role, loyalty_points, personal_discount, created_at)
@@ -622,12 +601,7 @@ export const authenticateUser = async (email, password) => {
     return { success: false, error: 'Пользователь не найден' };
   }
 
-  let isPasswordValid = false;
-  try {
-    isPasswordValid = bcrypt.compareSync(password, user.password_hash);
-  } catch (err) {
-    console.log('[AUTH] Ошибка bcrypt:', err);
-  }
+  const isPasswordValid = password === user.password_hash;
 
   if (!isPasswordValid) {
     return { success: false, error: 'Неверный пароль' };

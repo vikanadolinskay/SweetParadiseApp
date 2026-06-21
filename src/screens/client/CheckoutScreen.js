@@ -322,12 +322,11 @@ export default function CheckoutScreen({ route, navigation }) {
               setShowTimePicker(false);
               if (selectedTime) {
                 const minutes = selectedTime.getMinutes();
-                if (minutes < 15) {
-                  selectedTime.setMinutes(0);
-                } else if (minutes < 45) {
+                if (minutes < 30) {
                   selectedTime.setMinutes(30);
                 } else {
-                  selectedTime.setMinutes(30);
+                  selectedTime.setHours(selectedTime.getHours() + 1);
+                  selectedTime.setMinutes(0);
                 }
                 setPickupTime(selectedTime);
               }

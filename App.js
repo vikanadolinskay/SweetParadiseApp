@@ -16,6 +16,7 @@ export default function App() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [navKey, setNavKey] = useState(0);
 
   useEffect(() => {
     const setup = async () => {
@@ -25,11 +26,9 @@ export default function App() {
         console.log('База данных готова');
         setDbReady(true);
         
-        // Проверяем авторизацию
         const user = await AsyncStorage.getItem('user');
         setIsLoggedIn(!!user);
         
-        // После инициализации БД проверяем и синхронизируем офлайн-заказы
         await checkAndSyncOfflineOrders();
       } catch (err) {
         console.error('Ошибка при инициализации БД:', err);
@@ -42,13 +41,12 @@ export default function App() {
     setup();
   }, []);
 
-  // Функция для обновления состояния авторизации
   const updateAuthState = async () => {
     const user = await AsyncStorage.getItem('user');
     setIsLoggedIn(!!user);
+    setNavKey(prev => prev + 1);
   };
 
-  // Проверка и синхронизация офлайн-заказов
   const checkAndSyncOfflineOrders = async () => {
     try {
       const count = await getOfflineOrdersCount();
@@ -73,7 +71,6 @@ export default function App() {
     }
   };
 
-  // Функция для показа тоста из любого места
   window.showToast = (message) => {
     setToastMessage(message);
     setToastVisible(true);
@@ -118,7 +115,7 @@ export default function App() {
               <Text style={{ color: '#fff', fontSize: 12 }}>Синхронизация заказов...</Text>
             </View>
           )}
-          <AppNavigator isLoggedIn={isLoggedIn} onAuthStateChange={updateAuthState} />
+          <AppNavigator key={navKey} isLoggedIn={isLoggedIn} onAuthStateChange={updateAuthState} />
         </SafeAreaView>
         <GradientToast 
           visible={toastVisible} 

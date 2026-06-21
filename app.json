@@ -6,7 +6,7 @@
         "orientation": "portrait",
         "icon": "./assets/sweet.jpg",
         "splash": {
-            "image": "./assets/cake.jpg",
+            "image": "./assets/cake.png",
             "resizeMode": "contain",
             "backgroundColor": "#FFFFFF"
         },
