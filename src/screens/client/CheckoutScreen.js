@@ -23,7 +23,6 @@ export default function CheckoutScreen({ route, navigation }) {
   
   const [pickupAddress, setPickupAddress] = useState(savedAddress || 'г. Таганрог, ул. Петровская 711');
   
-  // Минимальная дата - через 2 дня
   const getMinDate = () => {
     const date = new Date();
     date.setDate(date.getDate() + 2);
@@ -124,7 +123,6 @@ export default function CheckoutScreen({ route, navigation }) {
     });
   };
 
-  // Проверка даты (не раньше чем через 2 дня)
   const isDateValid = () => {
     const minDate = getMinDate();
     const selectedDateTime = new Date(pickupDate);
@@ -148,7 +146,6 @@ export default function CheckoutScreen({ route, navigation }) {
       return;
     }
 
-    // Проверка даты
     if (!isDateValid()) {
       showGradientAlert({ 
         title: 'Ошибка', 
@@ -191,7 +188,6 @@ export default function CheckoutScreen({ route, navigation }) {
         customization: item.customization,
       }));
 
-      // Используем createOrderWithOffline вместо createOrder
       const result = await createOrderWithOffline(
         userId,
         total,
@@ -203,7 +199,6 @@ export default function CheckoutScreen({ route, navigation }) {
 
       if (result.success) {
         if (result.offline) {
-          // Заказ сохранён офлайн
           setIsOfflineOrder(true);
           setOrderNumber('ОФ-' + (result.offlineId || Date.now()));
           setShowSuccessModal(true);
@@ -213,7 +208,6 @@ export default function CheckoutScreen({ route, navigation }) {
             message: result.message || 'Заказ сохранён и будет отправлен при подключении к интернету' 
           });
         } else {
-          // Заказ создан онлайн
           setIsOfflineOrder(false);
           setOrderNumber(result.orderId);
           setShowSuccessModal(true);
@@ -323,6 +317,7 @@ export default function CheckoutScreen({ route, navigation }) {
             value={pickupTime}
             mode="time"
             display="default"
+            minuteInterval={30}
             onChange={(event, selectedTime) => {
               setShowTimePicker(false);
               if (selectedTime) setPickupTime(selectedTime);

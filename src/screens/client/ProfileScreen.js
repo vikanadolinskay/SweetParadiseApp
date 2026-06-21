@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -48,6 +49,7 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
   const [adminUsers, setAdminUsers] = useState([]);
   const [adminPromotions, setAdminPromotions] = useState([]);
   const [adminLoading, setAdminLoading] = useState(false);
+  const [orderStatusFilter, setOrderStatusFilter] = useState('all');
   
   const [productModalVisible, setProductModalVisible] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -61,6 +63,13 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
   const [promoForm, setPromoForm] = useState({
     name: '', type: 'discount_percent', value: '', product_id: null,
     start_date: '', end_date: '', is_active: 1
+  });
+
+  const [userEditModalVisible, setUserEditModalVisible] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [userEditForm, setUserEditForm] = useState({
+    bonus_points: '',
+    personal_discount: '',
   });
 
   const pickupAddresses = [
@@ -78,29 +87,9 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
     cancelled: 'Отменён'
   };
 
-  // Форсированное обновление для проверки авторизации
-  const [logoutTrigger, setLogoutTrigger] = useState(0);
-
   useEffect(() => {
     loadUserData();
   }, []);
-
-  // Проверка авторизации при каждом изменении logoutTrigger
-  useEffect(() => {
-    const checkAuth = async () => {
-      const userStr = await AsyncStorage.getItem('user');
-      if (!userStr) {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Login' }],
-        });
-        setTimeout(() => {
-          navigation.replace('Login');
-        }, 100);
-      }
-    };
-    checkAuth();
-  }, [logoutTrigger]);
 
   useEffect(() => {
     if (showAdminPanel && user?.role === 'admin') {
@@ -274,6 +263,46 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
     showGradientAlert({ title: 'Успешно', message: 'Роль обновлена' });
   };
 
+  const saveUserBonus = async () => {
+    if (!editingUser) return;
+    
+    const bonusPoints = parseInt(userEditForm.bonus_points) || 0;
+    const discount = parseFloat(userEditForm.personal_discount) || 0;
+    
+    if (discount < 0 || discount > 100) {
+      showGradientAlert({ title: 'Ошибка', message: 'Скидка должна быть от 0 до 100%' });
+      return;
+    }
+
+    if (bonusPoints !== 0) {
+      await executeQuery(
+        'UPDATE users SET loyalty_points = loyalty_points + ? WHERE user_id = ?',
+        [bonusPoints, editingUser.user_id]
+      );
+      
+      await executeQuery(
+        `INSERT INTO loyalty_history (user_id, points_change, reason, created_at)
+         VALUES (?, ?, ?, CURRENT_TIMESTAMP)`,
+        [editingUser.user_id, bonusPoints, bonusPoints > 0 ? 'Начисление бонусов администратором' : 'Списание бонусов администратором']
+      );
+    }
+    
+    await executeQuery(
+      'UPDATE users SET personal_discount = ? WHERE user_id = ?',
+      [discount, editingUser.user_id]
+    );
+
+    showGradientAlert({ 
+      title: 'Успешно', 
+      message: `Бонусы: ${bonusPoints > 0 ? '+' + bonusPoints : bonusPoints}\nСкидка: ${discount}%` 
+    });
+    
+    setUserEditModalVisible(false);
+    setEditingUser(null);
+    setUserEditForm({ bonus_points: '', personal_discount: '' });
+    loadAdminData();
+  };
+
   const handleEditProfile = () => {
     setIsEditing(true);
   };
@@ -306,9 +335,39 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
     });
   };
 
-  // ============================================================
-  // 100% РАБОЧЕЕ УДАЛЕНИЕ ПРОФИЛЯ
-  // ============================================================
+  const handleLogout = () => {
+    Alert.alert(
+      'Выход',
+      'Вы уверены, что хотите выйти из аккаунта?',
+      [
+        { text: 'Отмена', style: 'cancel' },
+        {
+          text: 'Выйти',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await AsyncStorage.clear();
+              
+              if (onAuthStateChange) {
+                await onAuthStateChange();
+              }
+              
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Login' }],
+              });
+            } catch (error) {
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Login' }],
+              });
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const handleDeleteProfile = () => {
     Alert.alert(
       'Удаление профиля',
@@ -325,21 +384,19 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
               }
               await AsyncStorage.clear();
               
-              // Обновляем состояние
               if (onAuthStateChange) {
                 await onAuthStateChange();
               }
-              setLogoutTrigger(prev => prev + 1);
               
               navigation.reset({
                 index: 0,
                 routes: [{ name: 'Login' }],
               });
-              setTimeout(() => {
-                navigation.replace('Login');
-              }, 200);
             } catch (error) {
-              navigation.replace('Login');
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Login' }],
+              });
             }
           }
         }
@@ -396,46 +453,6 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
     AsyncStorage.removeItem(`avatar_${user?.user_id}`);
     setShowAvatarMenu(false);
     showGradientAlert({ title: 'Успешно', message: 'Фото удалено' });
-  };
-
-  // ============================================================
-  // 100% РАБОЧИЙ ВЫХОД
-  // ============================================================
-  const handleLogout = () => {
-    Alert.alert(
-      'Выход',
-      'Вы уверены, что хотите выйти из аккаунта?',
-      [
-        { text: 'Отмена', style: 'cancel' },
-        {
-          text: 'Выйти',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await AsyncStorage.clear();
-              
-              // Обновляем состояние в App.js
-              if (onAuthStateChange) {
-                await onAuthStateChange();
-              }
-              
-              // Триггерим проверку авторизации
-              setLogoutTrigger(prev => prev + 1);
-              
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'Login' }],
-              });
-              setTimeout(() => {
-                navigation.replace('Login');
-              }, 200);
-            } catch (error) {
-              navigation.replace('Login');
-            }
-          }
-        }
-      ]
-    );
   };
 
   const handleSpendPoints = () => {
@@ -508,7 +525,7 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
             <TouchableOpacity
               key={tab.id}
               style={[styles.adminTab, adminTab === tab.id && styles.adminTabActive]}
-              onPress={() => setAdminTab(tab.id)}
+              onPress={() => { setAdminTab(tab.id); setOrderStatusFilter('all'); }}
             >
               <Ionicons name={tab.icon} size={20} color={adminTab === tab.id ? '#FF147A' : '#666'} />
               <Text style={[styles.adminTabText, adminTab === tab.id && styles.adminTabTextActive]}>
@@ -532,44 +549,68 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
     );
   };
 
-  const renderOrdersTab = () => (
-    <>
-      <TouchableOpacity style={styles.adminRefreshBtn} onPress={loadAdminData}>
-        <Text style={styles.adminRefreshText}>Обновить</Text>
-      </TouchableOpacity>
-      {adminOrders.map(order => (
-        <View key={order.order_id} style={styles.adminOrderCard}>
-          <View style={styles.adminOrderHeader}>
-            <Text style={styles.adminOrderId}>Заказ #{order.order_id}</Text>
-            <Text style={styles.adminOrderDate}>
-              {new Date(order.created_at).toLocaleDateString()}
-            </Text>
-          </View>
-          <Text style={styles.adminOrderUser}>{order.full_name} ({order.email})</Text>
-          <Text style={styles.adminOrderTotal}>{order.total_amount} руб.</Text>
-          <View style={styles.adminOrderStatusRow}>
-            <Text style={styles.adminOrderStatusLabel}>Статус:</Text>
-            <View style={[styles.adminStatusBadge, getStatusStyle(order.status)]}>
-              <Text style={styles.adminStatusText}>{STATUS_RU[order.status]}</Text>
+  const renderOrdersTab = () => {
+    const filteredOrders = orderStatusFilter === 'all' 
+      ? adminOrders 
+      : adminOrders.filter(order => order.status === orderStatusFilter);
+
+    return (
+      <>
+        <TouchableOpacity style={styles.adminRefreshBtn} onPress={loadAdminData}>
+          <Text style={styles.adminRefreshText}>Обновить</Text>
+        </TouchableOpacity>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
+          {['all', ...Object.keys(STATUS_RU)].map(status => (
+            <TouchableOpacity
+              key={status}
+              style={[styles.filterChip, orderStatusFilter === status && styles.filterChipActive]}
+              onPress={() => setOrderStatusFilter(status)}
+            >
+              <Text style={[styles.filterChipText, orderStatusFilter === status && styles.filterChipTextActive]}>
+                {status === 'all' ? 'Все' : STATUS_RU[status]}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {filteredOrders.map(order => (
+          <View key={order.order_id} style={styles.adminOrderCard}>
+            <View style={styles.adminOrderHeader}>
+              <Text style={styles.adminOrderId}>Заказ #{order.order_id}</Text>
+              <Text style={styles.adminOrderDate}>
+                {new Date(order.created_at).toLocaleDateString()}
+              </Text>
+            </View>
+            <Text style={styles.adminOrderUser}>{order.full_name} ({order.email})</Text>
+            <Text style={styles.adminOrderTotal}>{order.total_amount} руб.</Text>
+            <View style={styles.adminOrderStatusRow}>
+              <Text style={styles.adminOrderStatusLabel}>Статус:</Text>
+              <View style={[styles.adminStatusBadge, getStatusStyle(order.status)]}>
+                <Text style={styles.adminStatusText}>{STATUS_RU[order.status]}</Text>
+              </View>
+            </View>
+            <View style={styles.adminStatusButtons}>
+              {Object.keys(STATUS_RU).map(status => (
+                <TouchableOpacity
+                  key={status}
+                  style={[styles.adminStatusBtn, order.status === status && styles.adminStatusBtnActive]}
+                  onPress={() => updateOrderStatus(order.order_id, status)}
+                >
+                  <Text style={[styles.adminStatusBtnText, order.status === status && styles.adminStatusBtnTextActive]}>
+                    {STATUS_RU[status]}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
-          <View style={styles.adminStatusButtons}>
-            {Object.keys(STATUS_RU).map(status => (
-              <TouchableOpacity
-                key={status}
-                style={[styles.adminStatusBtn, order.status === status && styles.adminStatusBtnActive]}
-                onPress={() => updateOrderStatus(order.order_id, status)}
-              >
-                <Text style={[styles.adminStatusBtnText, order.status === status && styles.adminStatusBtnTextActive]}>
-                  {STATUS_RU[status]}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      ))}
-    </>
-  );
+        ))}
+        {filteredOrders.length === 0 && (
+          <Text style={{ textAlign: 'center', color: '#999', marginTop: 20 }}>Нет заказов</Text>
+        )}
+      </>
+    );
+  };
 
   const renderProductsTab = () => (
     <>
@@ -694,8 +735,66 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
               </TouchableOpacity>
             )}
           </View>
+          <TouchableOpacity 
+            style={styles.adminEditUserBtn}
+            onPress={() => {
+              setEditingUser(u);
+              setUserEditForm({
+                bonus_points: '',
+                personal_discount: String(u.personal_discount || 0),
+              });
+              setUserEditModalVisible(true);
+            }}
+          >
+            <Ionicons name="gift-outline" size={14} color="#FF147A" />
+            <Text style={styles.adminEditUserText}>Бонусы и скидка</Text>
+          </TouchableOpacity>
         </View>
       ))}
+
+      <Modal visible={userEditModalVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
+              {editingUser?.full_name}
+            </Text>
+            <Text style={{ fontSize: 13, color: '#666', textAlign: 'center', marginBottom: 16 }}>
+              Текущие баллы: {editingUser?.loyalty_points} | Скидка: {editingUser?.personal_discount}%
+            </Text>
+            
+            <Text style={styles.label}>Начислить/списать баллы (+/-):</Text>
+            <TextInput 
+              style={styles.input} 
+              placeholder="Например: 100 или -50" 
+              keyboardType="numeric" 
+              value={userEditForm.bonus_points} 
+              onChangeText={t => setUserEditForm({...userEditForm, bonus_points: t})} 
+            />
+            
+            <Text style={styles.label}>Персональная скидка (%):</Text>
+            <TextInput 
+              style={styles.input} 
+              placeholder="0-100" 
+              keyboardType="numeric" 
+              value={userEditForm.personal_discount} 
+              onChangeText={t => setUserEditForm({...userEditForm, personal_discount: t})} 
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.cancelModalBtn} onPress={() => {
+                setUserEditModalVisible(false);
+                setEditingUser(null);
+                setUserEditForm({ bonus_points: '', personal_discount: '' });
+              }}>
+                <Text style={styles.cancelModalText}>Отмена</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.saveModalBtn} onPress={saveUserBonus}>
+                <Text style={styles.saveModalText}>Сохранить</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 
@@ -715,9 +814,26 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
         <View key={promo.promotion_id} style={styles.adminPromoCard}>
           <View style={styles.adminPromoHeader}>
             <Text style={styles.adminPromoName}>{promo.name}</Text>
-            <TouchableOpacity onPress={() => deletePromotion(promo.promotion_id)}>
-              <Ionicons name="trash-outline" size={20} color="#FF4444" />
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <TouchableOpacity onPress={() => {
+                setEditingPromo(promo);
+                setPromoForm({
+                  name: promo.name,
+                  type: promo.type,
+                  value: String(promo.value),
+                  product_id: promo.product_id,
+                  start_date: promo.start_date,
+                  end_date: promo.end_date,
+                  is_active: promo.is_active
+                });
+                setPromoModalVisible(true);
+              }}>
+                <Ionicons name="create-outline" size={20} color="#FF147A" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => deletePromotion(promo.promotion_id)}>
+                <Ionicons name="trash-outline" size={20} color="#FF4444" />
+              </TouchableOpacity>
+            </View>
           </View>
           <Text style={styles.adminPromoInfo}>Тип: {promo.type}</Text>
           <Text style={styles.adminPromoInfo}>Значение: {promo.value}</Text>
@@ -903,6 +1019,25 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
             </LinearGradient>
           </View>
 
+          {/* О нас */}
+          <TouchableOpacity style={styles.aboutSection} onPress={() => {
+            showGradientAlert({ 
+              title: 'Sweet Paradise', 
+              message: 'Техническая поддержка:\n+7 (999) 123-45-67\n\nEmail: support@sweetparadise.ru\n\nАдрес: г. Таганрог, ул. Петровская, 711\n\nЧасы работы: ежедневно с 9:00 до 21:00'
+            });
+          }}>
+            <View style={styles.aboutHeader}>
+              <Ionicons name="information-circle-outline" size={22} color="#FF147A" />
+              <Text style={styles.aboutTitle}>О нас</Text>
+            </View>
+            <TouchableOpacity onPress={() => Linking.openURL('tel:+79991234567')}>
+              <Text style={styles.aboutPhone}>+7 (999) 123-45-67</Text>
+            </TouchableOpacity>
+            <Text style={styles.aboutEmail}>support@sweetparadise.ru</Text>
+            <Text style={styles.aboutAddress}>г. Таганрог, ул. Петровская, 711</Text>
+            <Text style={styles.aboutHours}>Ежедневно с 9:00 до 21:00</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
             <Text style={styles.logoutBtnText}>Выход</Text>
           </TouchableOpacity>
@@ -953,22 +1088,11 @@ const styles = StyleSheet.create({
   roleText: { fontSize: 12, color: '#FF147A', fontWeight: '500' },
   userAddress: { fontSize: 14, color: '#FF147A', marginTop: 4, textAlign: 'center', fontFamily: 'Poppins-Regular' },
   offlineBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF3E0',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: '#FFE0B2',
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF3E0',
+    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, marginTop: 12,
+    borderWidth: 1, borderColor: '#FFE0B2',
   },
-  offlineBadgeText: {
-    fontSize: 12,
-    color: '#FF9800',
-    marginLeft: 8,
-    fontFamily: 'Poppins-Medium',
-  },
+  offlineBadgeText: { fontSize: 12, color: '#FF9800', marginLeft: 8, fontFamily: 'Poppins-Medium' },
   section: { padding: 16, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
   sectionTitle: { fontSize: 14, fontWeight: '600', color: '#FF147A', marginBottom: 12, fontFamily: 'Poppins-SemiBold' },
   infoRow: { flexDirection: 'row', marginBottom: 12 },
@@ -1002,6 +1126,51 @@ const styles = StyleSheet.create({
   spendBtn: { backgroundColor: '#fff', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, marginLeft: 8 },
   spendBtnText: { color: '#FF147A', fontWeight: '600', fontSize: 12, fontFamily: 'Poppins-SemiBold' },
   discountText: { fontSize: 14, color: '#fff', textAlign: 'center', fontFamily: 'Poppins-Regular' },
+  aboutSection: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    padding: 16,
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
+  },
+  aboutHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
+  aboutTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FF147A',
+    fontFamily: 'Poppins-SemiBold',
+  },
+  aboutPhone: {
+    fontSize: 14,
+    color: '#FF147A',
+    marginBottom: 6,
+    fontFamily: 'Poppins-Medium',
+    textDecorationLine: 'underline',
+  },
+  aboutEmail: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 6,
+    fontFamily: 'Poppins-Regular',
+  },
+  aboutAddress: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 6,
+    fontFamily: 'Poppins-Regular',
+  },
+  aboutHours: {
+    fontSize: 13,
+    color: '#666',
+    fontFamily: 'Poppins-Regular',
+  },
   logoutBtn: { marginHorizontal: 16, marginVertical: 20, backgroundColor: '#FF147A', padding: 14, borderRadius: 12, alignItems: 'center' },
   logoutBtnText: { color: '#fff', fontSize: 16, fontWeight: '600', fontFamily: 'Poppins-SemiBold' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
@@ -1027,6 +1196,11 @@ const styles = StyleSheet.create({
   adminContent: { flex: 1, padding: 12 },
   adminRefreshBtn: { backgroundColor: '#F0F0F0', padding: 10, borderRadius: 8, alignItems: 'center', marginBottom: 12 },
   adminRefreshText: { fontSize: 14, color: '#666' },
+  filterScroll: { marginBottom: 12 },
+  filterChip: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16, backgroundColor: '#F0F0F0', marginRight: 8 },
+  filterChipActive: { backgroundColor: '#FF147A' },
+  filterChipText: { fontSize: 12, color: '#666' },
+  filterChipTextActive: { color: '#fff', fontWeight: '600' },
   adminAddBtn: { marginBottom: 12, borderRadius: 8, overflow: 'hidden' },
   adminAddGradient: { paddingVertical: 12, alignItems: 'center', borderRadius: 8 },
   adminAddBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
@@ -1070,6 +1244,8 @@ const styles = StyleSheet.create({
   adminRoleText: { fontSize: 11, color: '#666' },
   adminMakeAdminBtn: { backgroundColor: '#FF147A', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
   adminMakeAdminText: { fontSize: 10, color: '#fff' },
+  adminEditUserBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 10, paddingVertical: 6, gap: 6, backgroundColor: '#FFF0F5', borderRadius: 8 },
+  adminEditUserText: { fontSize: 11, color: '#FF147A', fontWeight: '500' },
   adminPromoCard: { backgroundColor: '#fff', borderRadius: 12, padding: 12, marginBottom: 10 },
   adminPromoHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   adminPromoName: { fontSize: 14, fontWeight: '600', color: '#333' },

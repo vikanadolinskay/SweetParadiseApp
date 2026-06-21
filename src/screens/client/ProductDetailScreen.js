@@ -61,6 +61,12 @@ export default function ProductDetailScreen({ route, navigation }) {
     navigation.navigate('Customize1', { product });
   };
 
+  const getWeight = (desc) => {
+    if (!desc) return null;
+    const match = desc.match(/Вес:\s*(\d+)\s*г/);
+    return match ? match[1] : null;
+  };
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -125,6 +131,13 @@ export default function ProductDetailScreen({ route, navigation }) {
         {product.calories && (
           <View style={styles.caloriesContainer}>
             <Text style={styles.caloriesText}>Калорийность: {product.calories} ккал</Text>
+          </View>
+        )}
+        
+        {/* Вес */}
+        {getWeight(product.description) && (
+          <View style={styles.caloriesContainer}>
+            <Text style={styles.caloriesText}>Вес: {getWeight(product.description)} г</Text>
           </View>
         )}
         

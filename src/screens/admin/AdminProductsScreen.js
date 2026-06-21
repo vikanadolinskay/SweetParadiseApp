@@ -16,7 +16,8 @@ export default function AdminProductsScreen() {
   const [editingProduct, setEditingProduct] = useState(null);
   const [form, setForm] = useState({
     name: '', description: '', price: '', category: 'cakes',
-    is_available: 1, is_customizable: 0, discount: 0
+    is_available: 1, is_customizable: 0, discount: 0,
+    calories: '', weight: ''
   });
 
   useEffect(() => { loadProducts(); }, []);
@@ -37,21 +38,21 @@ export default function AdminProductsScreen() {
     if (editingProduct) {
       await executeQuery(
         `UPDATE products SET name=?, description=?, price=?, category=?, 
-         is_available=?, is_customizable=?, discount=? WHERE product_id=?`,
+         is_available=?, is_customizable=?, discount=?, calories=?, weight=? WHERE product_id=?`,
         [form.name, form.description, form.price, form.category,
-         form.is_available, form.is_customizable, form.discount, editingProduct.product_id]
+         form.is_available, form.is_customizable, form.discount, form.calories, form.weight, editingProduct.product_id]
       );
     } else {
       await executeQuery(
-        `INSERT INTO products (name, description, price, category, is_available, is_customizable, discount)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO products (name, description, price, category, is_available, is_customizable, discount, calories, weight)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [form.name, form.description, form.price, form.category,
-         form.is_available, form.is_customizable, form.discount]
+         form.is_available, form.is_customizable, form.discount, form.calories, form.weight]
       );
     }
     setModalVisible(false);
     setEditingProduct(null);
-    setForm({ name: '', description: '', price: '', category: 'cakes', is_available: 1, is_customizable: 0, discount: 0 });
+    setForm({ name: '', description: '', price: '', category: 'cakes', is_available: 1, is_customizable: 0, discount: 0, calories: '', weight: '' });
     loadProducts();
   };
 
@@ -88,7 +89,7 @@ export default function AdminProductsScreen() {
             name: item.name, description: item.description || '',
             price: String(item.price), category: item.category,
             is_available: item.is_available, is_customizable: item.is_customizable,
-            discount: item.discount
+            discount: item.discount, calories: String(item.calories || ''), weight: String(item.weight || '')
           });
           setModalVisible(true);
         }}>
@@ -109,7 +110,7 @@ export default function AdminProductsScreen() {
         <Text style={styles.headerTitle}>Управление товарами</Text>
         <TouchableOpacity style={styles.addBtn} onPress={() => {
           setEditingProduct(null);
-          setForm({ name: '', description: '', price: '', category: 'cakes', is_available: 1, is_customizable: 0, discount: 0 });
+          setForm({ name: '', description: '', price: '', category: 'cakes', is_available: 1, is_customizable: 0, discount: 0, calories: '', weight: '' });
           setModalVisible(true);
         }}>
           <LinearGradient colors={['#FFBCD9', '#FFCBBB']} style={styles.addGradient}>
@@ -135,6 +136,8 @@ export default function AdminProductsScreen() {
             <TextInput style={styles.input} placeholder="Название" value={form.name} onChangeText={t => setForm({...form, name: t})} />
             <TextInput style={[styles.input, styles.textArea]} placeholder="Описание" multiline value={form.description} onChangeText={t => setForm({...form, description: t})} />
             <TextInput style={styles.input} placeholder="Цена" keyboardType="numeric" value={String(form.price)} onChangeText={t => setForm({...form, price: t})} />
+            <TextInput style={styles.input} placeholder="Калорийность (ккал)" keyboardType="numeric" value={String(form.calories)} onChangeText={t => setForm({...form, calories: t})} />
+            <TextInput style={styles.input} placeholder="Вес (г)" keyboardType="numeric" value={String(form.weight)} onChangeText={t => setForm({...form, weight: t})} />
 
             <Text style={styles.label}>Категория:</Text>
             <View style={styles.categoryRow}>
@@ -180,7 +183,6 @@ export default function AdminProductsScreen() {
   );
 }
 
-// Стили (добавьте в конце файла)
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },

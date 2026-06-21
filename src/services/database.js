@@ -81,14 +81,12 @@ export const initDatabase = async () => {
     const dbDir = FileSystem.documentDirectory + 'SQLite/';
     const dbPath = dbDir + DB_NAME;
 
-    // Создаём директорию
     const dirInfo = await FileSystem.getInfoAsync(dbDir);
     if (!dirInfo.exists) {
       await FileSystem.makeDirectoryAsync(dbDir, { intermediates: true });
       console.log('[DB] Папка SQLite создана');
     }
 
-    // Проверяем наличие БД
     const fileInfo = await FileSystem.getInfoAsync(dbPath);
     if (!fileInfo.exists) {
       console.log('[DB] Копирование базы данных...');
@@ -101,11 +99,9 @@ export const initDatabase = async () => {
       console.log('[DB] База данных скопирована');
     }
 
-    // Открываем БД
     db = await SQLite.openDatabaseAsync(DB_NAME);
     console.log('[DB] База данных открыта');
 
-    // Создаём таблицу users, если её нет
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS users (
         user_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -119,9 +115,7 @@ export const initDatabase = async () => {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    console.log('[DB] Таблица users проверена');
 
-    // Создаём таблицу products, если её нет
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS products (
         product_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -129,6 +123,7 @@ export const initDatabase = async () => {
         description TEXT,
         price DECIMAL(10,2) NOT NULL,
         calories INTEGER DEFAULT 0,
+        weight INTEGER DEFAULT 0,
         category VARCHAR(100),
         image_url VARCHAR(500),
         is_available BOOLEAN DEFAULT 1,
@@ -137,9 +132,15 @@ export const initDatabase = async () => {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    console.log('[DB] Таблица products проверена');
 
-    // Создаём таблицу banners, если её нет
+    // Проверяем, есть ли колонка weight (для старых БД)
+    try {
+      await db.execAsync(`ALTER TABLE products ADD COLUMN weight INTEGER DEFAULT 0`);
+      console.log('[DB] Колонка weight добавлена');
+    } catch (e) {
+      // Колонка уже существует
+    }
+
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS banners (
         banner_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -157,9 +158,7 @@ export const initDatabase = async () => {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    console.log('[DB] Таблица banners проверена');
 
-    // Создаём таблицу orders, если её нет
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS orders (
         order_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -175,9 +174,7 @@ export const initDatabase = async () => {
         CHECK(total_amount >= 0)
       )
     `);
-    console.log('[DB] Таблица orders проверена');
 
-    // Создаём таблицу order_items, если её нет
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS order_items (
         order_item_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -191,9 +188,7 @@ export const initDatabase = async () => {
         CHECK(quantity > 0)
       )
     `);
-    console.log('[DB] Таблица order_items проверена');
 
-    // Создаём таблицу cart_items, если её нет
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS cart_items (
         cart_item_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -207,9 +202,7 @@ export const initDatabase = async () => {
         CHECK(quantity > 0)
       )
     `);
-    console.log('[DB] Таблица cart_items проверена');
 
-    // Создаём таблицу order_history, если её нет
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS order_history (
         history_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -222,9 +215,7 @@ export const initDatabase = async () => {
         FOREIGN KEY (user_id) REFERENCES users(user_id)
       )
     `);
-    console.log('[DB] Таблица order_history проверена');
 
-    // Создаём таблицу loyalty_history, если её нет
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS loyalty_history (
         history_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -235,9 +226,7 @@ export const initDatabase = async () => {
         FOREIGN KEY (user_id) REFERENCES users(user_id)
       )
     `);
-    console.log('[DB] Таблица loyalty_history проверена');
 
-    // Создаём таблицу promotions, если её нет
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS promotions (
         promotion_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -252,9 +241,7 @@ export const initDatabase = async () => {
         FOREIGN KEY (product_id) REFERENCES products(product_id)
       )
     `);
-    console.log('[DB] Таблица promotions проверена');
 
-    // ===== ТАБЛИЦА ДЛЯ ОФЛАЙН-ЗАКАЗОВ =====
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS offline_orders (
         offline_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -264,9 +251,8 @@ export const initDatabase = async () => {
         synced BOOLEAN DEFAULT 0
       )
     `);
-    console.log('[DB] Таблица offline_orders создана');
 
-    // ===== СОЗДАНИЕ ПОЛЬЗОВАТЕЛЕЙ С ФИКСИРОВАННЫМИ ID =====
+    // ===== СОЗДАНИЕ ПОЛЬЗОВАТЕЛЕЙ =====
     const usersData = [
       { user_id: 1, email: 'test@sweet.ru', fullName: 'Тестовый Пользователь', phone: '+79001234567', role: 'client', points: 0, discount: 0 },
       { user_id: 2, email: 'admin@sweetparadise.ru', fullName: 'Администратор', phone: '+79009999999', role: 'admin', points: 0, discount: 0 },
@@ -296,7 +282,6 @@ export const initDatabase = async () => {
         
         console.log('[DB] Создан пользователь:', userData.email, 'ID:', userData.user_id);
       } else {
-        // Если пользователь есть, но хэш не bcrypt - обновляем
         const user = existing[0];
         if (!user.password_hash || !user.password_hash.startsWith('$2')) {
           const salt = bcrypt.genSaltSync(12);
@@ -315,17 +300,57 @@ export const initDatabase = async () => {
     if (existingProducts[0].count === 0) {
       console.log('[DB] Добавление товаров...');
       await db.runAsync(`
-        INSERT INTO products (name, description, price, calories, category, image_url, is_available, is_customizable, discount) VALUES
-        ('Бант Классический', 'Нежное пирожное в форме банта с воздушным заварным кремом. Идеально подходит для утреннего кофе или чаепития.', 350, 320, 'pastries', 'images/bant_classic.jpg', 1, 0, 0),
-        ('Бант Мини', 'Маленькое удовольствие для тех, кто следит за фигурой.', 180, 180, 'pastries', 'images/bant_mini.jpg', 1, 0, 0),
-        ('Бант Жемчужный', 'Изысканное пирожное с жемчужным декором и нежной начинкой из маскарпоне.', 420, 380, 'pastries', 'images/bant_pearl.jpg', 1, 0, 0),
-        ('Бант Розовый', 'Романтичное розовое пирожное с шоколадной начинкой и клубничным муссом.', 390, 350, 'pastries', 'images/bant_pink.jpg', 1, 0, 0),
-        ('Баскский Чизкейк', 'Знаменитый баскский чизкейк с карамелизированной корочкой и нежной кремовой текстурой.', 2500, 480, 'cakes', 'images/basque.jpg', 1, 1, 0),
-        ('Бенто Торт', 'Компактный торт в японском стиле.', 1800, 420, 'cakes', 'images/bento.jpg', 1, 1, 0),
-        ('Брауни', 'Плотный шоколадный брауни с грецкими орехами и шоколадными каплями.', 1500, 520, 'cakes', 'images/brownie.jpg', 1, 0, 0),
-        ('Канеле', 'Французское пирожное с хрустящей карамельной корочкой и мягкой ванильной начинкой.', 350, 280, 'pastries', 'images/canele.jpg', 1, 0, 0),
-        ('Профитроль с Сыром', 'Нежные заварные пирожные с сырным кремом из сливочного сыра и пармезана.', 280, 250, 'pastries', 'images/choux_cheese.jpg', 1, 0, 0),
-        ('Шоколадное Печенье', 'Хрустящее шоколадное печенье с кусочками темного шоколада и какао.', 250, 210, 'cookies', 'images/cookies_choco.jpg', 1, 0, 0)
+        INSERT INTO products (name, description, price, calories, weight, category, image_url, is_available, is_customizable, discount) VALUES
+        ('Бант Классический', 'Нежное пирожное в форме банта с воздушным заварным кремом.', 350, 320, 80, 'pastries', 'images/bant_classic.jpg', 1, 0, 0),
+        ('Бант Мини', 'Маленькое удовольствие для тех, кто следит за фигурой.', 180, 180, 40, 'pastries', 'images/bant_mini.jpg', 1, 0, 0),
+        ('Бант Жемчужный', 'Изысканное пирожное с жемчужным декором и нежной начинкой из маскарпоне.', 420, 380, 90, 'pastries', 'images/bant_pearl.jpg', 1, 0, 0),
+        ('Бант Розовый', 'Романтичное розовое пирожное с шоколадной начинкой и клубничным муссом.', 390, 350, 85, 'pastries', 'images/bant_pink.jpg', 1, 0, 0),
+        ('Баскский Чизкейк', 'Знаменитый баскский чизкейк с карамелизированной корочкой и нежной кремовой текстурой.', 2500, 480, 800, 'cakes', 'images/basque.jpg', 1, 1, 0),
+        ('Бенто Торт', 'Компактный торт в японском стиле.', 1800, 420, 500, 'cakes', 'images/bento.jpg', 1, 1, 0),
+        ('Брауни', 'Плотный шоколадный брауни с грецкими орехами и шоколадными каплями.', 1500, 520, 400, 'cakes', 'images/brownie.jpg', 1, 0, 0),
+        ('Канеле', 'Французское пирожное с хрустящей карамельной корочкой и мягкой ванильной начинкой.', 350, 280, 50, 'pastries', 'images/canele.jpg', 1, 0, 0),
+        ('Профитроль с Сыром', 'Нежные заварные пирожные с сырным кремом.', 280, 250, 120, 'pastries', 'images/choux_cheese.jpg', 1, 0, 0),
+        ('Шоколадное Печенье', 'Хрустящее шоколадное печенье с кусочками темного шоколада.', 250, 210, 150, 'cookies', 'images/cookies_choco.jpg', 1, 0, 0),
+        ('Крем-брюле', 'Классический французский десерт с хрустящей карамельной корочкой.', 320, 350, 150, 'desserts', 'images/creme_brulee.jpg', 1, 0, 0),
+        ('Круассан с Миндалем', 'Хрустящий слоеный круассан с миндальной начинкой.', 350, 420, 80, 'pastries', 'images/croissant_almond.jpg', 1, 0, 0),
+        ('Круассан с Шоколадом', 'Классический французский круассан с начинкой из темного шоколада.', 320, 400, 75, 'pastries', 'images/croissant_choco.jpg', 1, 0, 0),
+        ('Круассан с Фисташкой', 'Изысканный круассан с фисташковой пастой.', 380, 430, 80, 'pastries', 'images/croissant_pist.jpg', 1, 0, 0),
+        ('Тарт с Лимоном', 'Песочный тарт с лимонным курдом и безе.', 420, 380, 120, 'desserts', 'images/danet_lemon.jpg', 1, 0, 0),
+        ('Эклер с Карамелью', 'Классический французский эклер с карамельным заварным кремом.', 320, 290, 70, 'pastries', 'images/eclair_caramel.jpg', 1, 0, 0),
+        ('Эклер с Шоколадом и Фисташкой', 'Изысканный эклер с шоколадно-фисташковым кремом.', 350, 320, 75, 'pastries', 'images/eclair_choco_pist.jpg', 1, 0, 0),
+        ('Эклер с Ванилью', 'Нежный эклер с классическим ванильным заварным кремом.', 290, 270, 65, 'pastries', 'images/eclair_vanilla.jpg', 1, 0, 0),
+        ('Финансье', 'Французское миндальное пирожное в форме золотого слитка.', 280, 310, 40, 'pastries', 'images/financier.jpg', 1, 0, 0),
+        ('Торт Киндер', 'Нежный торт, напоминающий вкус знаменитых шоколадных батончиков.', 2200, 580, 800, 'cakes', 'images/kinder.jpg', 1, 1, 0),
+        ('Ламбет с Карамелью', 'Нежный десерт в стаканчике с карамельным кремом.', 400, 380, 150, 'desserts', 'images/lambet_caramel.jpg', 1, 0, 0),
+        ('Ламбет Классический', 'Традиционный десерт в стаканчике с заварным кремом.', 380, 350, 140, 'desserts', 'images/lambet_classic.jpg', 1, 0, 0),
+        ('Ламбет с Кокосом', 'Тропический десерт в стаканчике с кокосовым кремом.', 390, 420, 150, 'desserts', 'images/lambet_coconut.jpg', 1, 0, 0),
+        ('Ламбет с Шоколадом', 'Шоколадный десерт в стаканчике с насыщенным шоколадным кремом.', 430, 450, 150, 'desserts', 'images/lambet_fondant.jpg', 1, 0, 0),
+        ('Ламбет с Фисташкой', 'Изысканный десерт в стаканчике с фисташковым кремом.', 450, 440, 150, 'desserts', 'images/lambet_pistachio.jpg', 1, 0, 0),
+        ('Ламбет Тропический', 'Яркий тропический десерт с манго и маракуйей.', 420, 370, 150, 'desserts', 'images/lambet_tropical.jpg', 1, 0, 0),
+        ('Макарон с Карамелью', 'Французское пирожное макарон с карамельной начинкой.', 180, 150, 20, 'desserts', 'images/macaron_caramel.jpg', 1, 0, 0),
+        ('Макарон с Лавандой', 'Ароматный макарон с начинкой из лавандового крема.', 180, 140, 20, 'desserts', 'images/macaron_lavender.jpg', 1, 0, 0),
+        ('Макарон с Манго', 'Яркий желтый макарон с начинкой из мангового крема.', 190, 145, 20, 'desserts', 'images/macaron_mango.jpg', 1, 0, 0),
+        ('Макарон с Матчей', 'Зеленый макарон с кремом из японского порошка матча.', 190, 155, 20, 'desserts', 'images/macaron_matcha.jpg', 1, 0, 0),
+        ('Макарон Жемчужный', 'Изысканный макарон с жемчужным декором и белым шоколадом.', 200, 160, 22, 'desserts', 'images/macaron_pearl.jpg', 1, 0, 0),
+        ('Макарон с Фисташкой', 'Зеленый макарон с фисташковой начинкой.', 190, 165, 20, 'desserts', 'images/macaron_pistachio.jpg', 1, 0, 0),
+        ('Макарон Трюфель', 'Роскошный макарон с начинкой из черного трюфеля и шоколада.', 220, 180, 22, 'desserts', 'images/macaron_truffle.jpg', 1, 0, 0),
+        ('Торт Зеркальный', 'Впечатляющий торт с зеркальной глазурью и муссовой начинкой.', 2800, 520, 900, 'cakes', 'images/mirror.jpg', 1, 1, 0),
+        ('Нью-Йорк с Голубикой', 'Нью-йоркский чизкейк с голубичным конфи.', 2300, 490, 800, 'cakes', 'images/ny_blueberry.jpg', 1, 1, 0),
+        ('Нью-Йорк Классический', 'Знаменитый нью-йоркский чизкейк по традиционному рецепту.', 2100, 510, 800, 'cakes', 'images/ny_cheesecake.jpg', 1, 1, 0),
+        ('Нью-Йорк с Малиной', 'Нью-йоркский чизкейк с малиновым конфи.', 2400, 495, 800, 'cakes', 'images/ny_raspberry.jpg', 1, 1, 0),
+        ('Торт Опера', 'Классический французский торт Опера с кофейным кремом и шоколадным ганашем.', 2600, 550, 800, 'cakes', 'images/opera.jpg', 1, 1, 0),
+        ('Панна-котта', 'Итальянский десерт панна-котта с ванилью и ягодным соусом.', 320, 280, 120, 'desserts', 'images/panna_cotta.jpg', 1, 0, 0),
+        ('Панна-котта Фисташковая', 'Итальянская панна-котта с фисташковой пастой.', 350, 320, 120, 'desserts', 'images/panna_cotta_pist.jpg', 1, 0, 0),
+        ('Панна-котта с Манго', 'Итальянская панна-котта с манговым пюре.', 340, 290, 120, 'desserts', 'images/panna_cotta_mango.jpg', 1, 0, 0),
+        ('Париж-Брест', 'Французский торт Париж-Брест в форме колеса с пралиновым кремом.', 380, 430, 150, 'pastries', 'images/paris_brest.jpg', 1, 0, 0),
+        ('Павлова', 'Легкий десерт Павлова с хрустящей меренгой и свежими ягодами.', 350, 310, 180, 'desserts', 'images/pavlova.jpg', 1, 0, 0),
+        ('Торт Рафаэлло', 'Нежный торт с кокосовой стружкой и миндалем.', 2000, 560, 800, 'cakes', 'images/rafaello.jpg', 1, 1, 0),
+        ('Торт Захер', 'Знаменитый венский торт Захер с шоколадным бисквитом и абрикосовым джемом.', 3000, 600, 800, 'cakes', 'images/sacher.jpg', 1, 1, 0),
+        ('Сент-Оноре', 'Французский торт Сент-Оноре с заварным тестом и карамелью.', 450, 480, 200, 'pastries', 'images/saint_honore.jpg', 1, 0, 0),
+        ('Ягодный Тарт', 'Песочный тарт с заварным кремом и ассорти из свежих ягод.', 400, 360, 130, 'desserts', 'images/tart_berry.jpg', 1, 0, 0),
+        ('Лимонный Тарт', 'Песочный тарт с лимонным курдом и меренгой.', 380, 350, 120, 'desserts', 'images/tart_lemon.jpg', 1, 0, 0),
+        ('Тирамису', 'Классический итальянский тирамису с маскарпоне и кофе.', 1800, 470, 800, 'cakes', 'images/tiramisu.jpg', 1, 1, 0),
+        ('Трюфели Шоколадные', 'Шоколадные трюфели из бельгийского шоколада ручной работы.', 1500, 520, 200, 'desserts', 'images/truffles.jpg', 1, 0, 0)
       `);
       console.log('[DB] Товары добавлены');
     }
@@ -361,92 +386,6 @@ export const initDatabase = async () => {
         ('Скидка пенсионерам', 'discount_percent', 5, NULL, '2026-01-01', '2026-12-31', 1)
       `);
       console.log('[DB] Акции добавлены');
-    }
-
-    // ===== ДОБАВЛЕНИЕ ТЕСТОВЫХ ЗАКАЗОВ =====
-    const existingOrders = await db.getAllAsync('SELECT COUNT(*) as count FROM orders');
-    if (existingOrders[0].count === 0) {
-      console.log('[DB] Добавление тестовых заказов...');
-      await db.runAsync(`
-        INSERT INTO orders (user_id, status, total_amount, pickup_address, desired_pickup_time, payment_method, created_at, updated_at) 
-        VALUES 
-        (1, 'completed', 1750, 'г. Таганрог, ул. Петровская, 711', '2026-05-01 15:00:00', 'card', '2026-05-01 10:00:00', '2026-05-01 15:00:00'),
-        (1, 'pending', 1800, 'г. Таганрог, ул. Петровская, 711', '2026-05-02 12:00:00', 'cash', '2026-05-02 11:00:00', '2026-05-02 12:00:00'),
-        (1, 'completed', 400, 'г. Таганрог, ул. Петровская, 711', '2026-05-03 18:00:00', 'card', '2026-05-03 09:00:00', '2026-05-03 18:00:00'),
-        (1, 'completed', 3000, 'г. Таганрог, ул. Петровская, 711', '2026-05-05 14:00:00', 'card', '2026-05-04 12:00:00', '2026-05-05 14:00:00'),
-        (3, 'completed', 2500, 'г. Таганрог, ул. Петровская, 711', '2026-06-01 15:00:00', 'card', '2026-06-01 10:00:00', '2026-06-01 15:00:00'),
-        (3, 'completed', 1800, 'г. Таганрог, ул. Чехова, 22', '2026-06-10 16:00:00', 'cash', '2026-06-10 11:00:00', '2026-06-10 16:00:00')
-      `);
-      console.log('[DB] Тестовые заказы добавлены');
-    }
-
-    // ===== ДОБАВЛЕНИЕ ТЕСТОВЫХ ЗАКАЗОВ В ИСТОРИЮ =====
-    const existingHistory = await db.getAllAsync('SELECT COUNT(*) as count FROM order_history');
-    if (existingHistory[0].count === 0) {
-      console.log('[DB] Добавление истории заказов...');
-      await db.runAsync(`
-        INSERT INTO order_history (order_id, action, description, created_at) VALUES
-        (1, 'status_changed', 'Заказ оформлен', '2026-05-01 10:00:00'),
-        (1, 'status_changed', 'Заказ оплачен', '2026-05-01 10:05:00'),
-        (1, 'status_changed', 'В производстве', '2026-05-01 11:00:00'),
-        (1, 'status_changed', 'Готов к выдаче', '2026-05-01 14:30:00'),
-        (2, 'status_changed', 'Заказ оформлен', '2026-05-02 11:00:00'),
-        (3, 'status_changed', 'Заказ оформлен', '2026-05-03 09:00:00'),
-        (4, 'status_changed', 'Заказ оформлен', '2026-05-04 12:00:00'),
-        (4, 'status_changed', 'В производстве', '2026-05-04 13:00:00')
-      `);
-      console.log('[DB] История заказов добавлена');
-    }
-
-    // ===== ДОБАВЛЕНИЕ ТЕСТОВЫХ ТОВАРОВ В ЗАКАЗЫ =====
-    const existingOrderItems = await db.getAllAsync('SELECT COUNT(*) as count FROM order_items');
-    if (existingOrderItems[0].count === 0) {
-      console.log('[DB] Добавление состава заказов...');
-      await db.runAsync(`
-        INSERT INTO order_items (order_id, product_id, quantity, price_at_time, customization) VALUES
-        (1, 5, 1, 2500, NULL),
-        (1, 4, 2, 250, '{"color":"розовый"}'),
-        (2, 2, 1, 1800, '{"size":"1.5кг"}'),
-        (3, 8, 1, 400, NULL),
-        (4, 2, 1, 1800, NULL),
-        (4, 6, 2, 300, NULL),
-        (4, 3, 1, 1400, NULL),
-        (5, 5, 1, 2500, NULL),
-        (6, 2, 1, 1800, NULL)
-      `);
-      console.log('[DB] Состав заказов добавлен');
-    }
-
-    // ===== ДОБАВЛЕНИЕ ТЕСТОВЫХ ЗАПИСЕЙ В КОРЗИНУ =====
-    const existingCartItems = await db.getAllAsync('SELECT COUNT(*) as count FROM cart_items');
-    if (existingCartItems[0].count === 0) {
-      console.log('[DB] Добавление тестовых товаров в корзину...');
-      await db.runAsync(`
-        INSERT INTO cart_items (user_id, product_id, quantity, customization) VALUES
-        (1, 2, 1, NULL),
-        (1, 5, 2, '{"color":"розовый","flavor":"клубника"}'),
-        (1, 9, 1, '{"cream":"шоколадный"}'),
-        (2, 6, 1, NULL),
-        (2, 7, 3, NULL)
-      `);
-      console.log('[DB] Товары в корзину добавлены');
-    }
-
-    // ===== ДОБАВЛЕНИЕ ТЕСТОВОЙ ИСТОРИИ ЛОЯЛЬНОСТИ =====
-    const existingLoyalty = await db.getAllAsync('SELECT COUNT(*) as count FROM loyalty_history');
-    if (existingLoyalty[0].count === 0) {
-      console.log('[DB] Добавление истории лояльности...');
-      await db.runAsync(`
-        INSERT INTO loyalty_history (user_id, points_change, reason) VALUES
-        (3, 500, 'Бонус за регистрацию'),
-        (3, 200, 'Заказ №101'),
-        (3, 300, 'Заказ №102'),
-        (3, -50, 'Списание баллов'),
-        (3, 100, 'Заказ №103'),
-        (3, 350, 'Заказ №104'),
-        (3, -200, 'Списание баллов')
-      `);
-      console.log('[DB] История лояльности добавлена');
     }
 
     return db;
@@ -518,7 +457,7 @@ export const getBanners = async () => {
   }
 };
 
-// ========== ТОВАРЫ С ИЗОБРАЖЕНИЯМИ ==========
+// ========== ТОВАРЫ ==========
 export const getProducts = async () => {
   const dbConn = await getDb();
   const products = await dbConn.getAllAsync('SELECT * FROM products WHERE is_available = 1 ORDER BY product_id');
@@ -639,9 +578,7 @@ export const checkEmailExists = async (email) => {
   return result.length > 0;
 };
 
-// ========== РЕГИСТРАЦИЯ С BCRYPT (ХЭШИРОВАНИЕ ПАРОЛЯ) ==========
 export const createUser = async (email, fullName, phone, password) => {
-  console.log('[CREATE] Регистрация:', email);
   const dbConn = await getDb();
 
   const existing = await dbConn.getAllAsync('SELECT 1 FROM users WHERE email = ?', [email]);
@@ -651,8 +588,6 @@ export const createUser = async (email, fullName, phone, password) => {
 
   const salt = bcrypt.genSaltSync(12);
   const hashedPassword = bcrypt.hashSync(password, salt);
-  
-  console.log('[CREATE] Пароль захэширован');
 
   const result = await dbConn.runAsync(
     `INSERT INTO users (email, full_name, phone, password_hash, role, loyalty_points, personal_discount, created_at)
@@ -660,7 +595,6 @@ export const createUser = async (email, fullName, phone, password) => {
     [email, fullName, phone, hashedPassword]
   );
 
-  console.log('[CREATE] Пользователь создан, userId:', result.lastInsertRowId);
   return { success: true, userId: result.lastInsertRowId };
 };
 
@@ -680,14 +614,11 @@ export const getUserById = async (userId) => {
   return result.length > 0 ? result[0] : null;
 };
 
-// ========== АВТОРИЗАЦИЯ С BCRYPT (ПРОВЕРКА ПАРОЛЯ) ==========
 export const authenticateUser = async (email, password) => {
-  console.log('[AUTH] Попытка входа:', email);
   const dbConn = await getDb();
 
   const user = await getUserByEmail(email);
   if (!user) {
-    console.log('[AUTH] Пользователь не найден:', email);
     return { success: false, error: 'Пользователь не найден' };
   }
 
@@ -698,14 +629,10 @@ export const authenticateUser = async (email, password) => {
     console.log('[AUTH] Ошибка bcrypt:', err);
   }
 
-  console.log('[AUTH] Результат проверки пароля:', isPasswordValid);
-
   if (!isPasswordValid) {
-    console.log('[AUTH] Неверный пароль:', email);
     return { success: false, error: 'Неверный пароль' };
   }
 
-  console.log('[AUTH] Вход выполнен:', email);
   const { password_hash, ...userWithoutPassword } = user;
   return { success: true, user: userWithoutPassword };
 };
@@ -715,7 +642,6 @@ export const updateLoyaltyPoints = async (userId, points) => {
   await dbConn.runAsync('UPDATE users SET loyalty_points = loyalty_points + ? WHERE user_id = ?', [points, userId]);
 };
 
-// ========== ОБНОВЛЕНИЕ ПРОФИЛЯ ПОЛЬЗОВАТЕЛЯ ==========
 export const updateUserProfile = async (userId, data) => {
   const dbConn = await getDb();
   const { full_name, phone, email } = data;
@@ -732,7 +658,6 @@ export const updateUserProfile = async (userId, data) => {
   }
 };
 
-// ========== УДАЛЕНИЕ ПОЛЬЗОВАТЕЛЯ ==========
 export const deleteUserAccount = async (userId) => {
   const dbConn = await getDb();
   if (!dbConn) return false;
@@ -792,7 +717,6 @@ export const getOrderItems = async (orderId) => {
   }));
 };
 
-// ========== СОЗДАНИЕ ЗАКАЗА ==========
 export const createOrder = async (userId, totalAmount, pickupAddress, desiredPickupTime, paymentMethod, items) => {
   const database = await getDb();
   if (!database) return null;
@@ -834,7 +758,6 @@ export const createOrder = async (userId, totalAmount, pickupAddress, desiredPic
   }
 };
 
-// ========== ОФЛАЙН-ФУНКЦИЯ СОЗДАНИЯ ЗАКАЗА ==========
 export const createOrderWithOffline = async (userId, totalAmount, pickupAddress, desiredPickupTime, paymentMethod, items) => {
   const database = await getDb();
   if (!database) return { success: false, error: 'База данных недоступна' };
@@ -843,7 +766,6 @@ export const createOrderWithOffline = async (userId, totalAmount, pickupAddress,
     const orderId = await createOrder(userId, totalAmount, pickupAddress, desiredPickupTime, paymentMethod, items);
     
     if (orderId) {
-      console.log('[ORDER] Заказ создан онлайн, ID:', orderId);
       return { success: true, orderId, offline: false };
     } else {
       throw new Error('Не удалось создать заказ');
@@ -868,7 +790,6 @@ export const createOrderWithOffline = async (userId, totalAmount, pickupAddress,
         [userId, orderData]
       );
 
-      console.log('[OFFLINE] Заказ сохранён в офлайн-очередь, ID:', result.lastInsertRowId);
       return { 
         success: true, 
         offlineId: result.lastInsertRowId,
@@ -882,7 +803,6 @@ export const createOrderWithOffline = async (userId, totalAmount, pickupAddress,
   }
 };
 
-// ========== СИНХРОНИЗАЦИЯ ОФЛАЙН-ЗАКАЗОВ ==========
 export const syncOfflineOrders = async () => {
   const database = await getDb();
   if (!database) return { success: false, error: 'База данных недоступна' };
@@ -893,11 +813,9 @@ export const syncOfflineOrders = async () => {
     );
 
     if (offlineOrders.length === 0) {
-      console.log('[SYNC] Нет офлайн-заказов для синхронизации');
       return { success: true, synced: 0 };
     }
 
-    console.log('[SYNC] Начинаем синхронизацию', offlineOrders.length, 'заказов');
     let syncedCount = 0;
 
     for (const offlineOrder of offlineOrders) {
@@ -919,7 +837,6 @@ export const syncOfflineOrders = async () => {
             [offlineOrder.offline_id]
           );
           syncedCount++;
-          console.log('[SYNC] Заказ', offlineOrder.offline_id, 'синхронизирован, ID:', orderId);
         }
       } catch (error) {
         console.error('[SYNC] Ошибка синхронизации заказа', offlineOrder.offline_id, error);
@@ -933,7 +850,6 @@ export const syncOfflineOrders = async () => {
   }
 };
 
-// ========== ПОЛУЧЕНИЕ КОЛИЧЕСТВА ОФЛАЙН-ЗАКАЗОВ ==========
 export const getOfflineOrdersCount = async () => {
   const database = await getDb();
   if (!database) return 0;
@@ -949,7 +865,6 @@ export const getOfflineOrdersCount = async () => {
   }
 };
 
-// ========== ПОЛУЧЕНИЕ ВСЕХ ОФЛАЙН-ЗАКАЗОВ ==========
 export const getOfflineOrders = async () => {
   const database = await getDb();
   if (!database) return [];

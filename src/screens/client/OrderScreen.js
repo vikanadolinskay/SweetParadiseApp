@@ -15,7 +15,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getOrdersByUserId, executeQuery } from '../../services/database';
-import { showGradientAlert, showGradientConfirm } from '../../components/GradientAlert';
+import { showGradientAlert } from '../../components/GradientAlert';
+import { showGradientConfirm } from '../../components/GradientConfirm';
 
 export default function OrderScreen({ navigation }) {
   const [orders, setOrders] = useState([]);

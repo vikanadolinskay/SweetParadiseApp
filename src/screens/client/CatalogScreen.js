@@ -112,9 +112,16 @@ export default function CatalogScreen({ navigation }) {
   const startAutoScroll = () => {
     if (autoScrollInterval.current) clearInterval(autoScrollInterval.current);
     autoScrollInterval.current = setInterval(() => {
-      if (banners.length > 0 && !isScrolling) {
-        const nextIndex = (currentBannerIndex + 1) % banners.length;
-        scrollToIndex(nextIndex);
+      if (banners.length > 1 && !isScrolling) {
+        const nextIndex = currentBannerIndex + 1;
+        if (nextIndex >= banners.length) {
+          flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+          setCurrentBannerIndex(0);
+        } else {
+          const offset = nextIndex * (BANNER_WIDTH + BANNER_GAP);
+          flatListRef.current?.scrollToOffset({ offset, animated: true });
+          setCurrentBannerIndex(nextIndex);
+        }
       }
     }, 4000);
   };
@@ -127,11 +134,9 @@ export default function CatalogScreen({ navigation }) {
   };
 
   const scrollToIndex = (index) => {
-    if (flatListRef.current && banners[index]) {
-      flatListRef.current.scrollToIndex({
-        index,
-        animated: true,
-      });
+    if (flatListRef.current && index >= 0 && index < banners.length) {
+      const offset = index * (BANNER_WIDTH + BANNER_GAP);
+      flatListRef.current.scrollToOffset({ offset, animated: true });
       setCurrentBannerIndex(index);
     }
   };
@@ -330,10 +335,8 @@ export default function CatalogScreen({ navigation }) {
     setShowSortMenu(false);
   };
 
-  // ===== ИСПРАВЛЕННАЯ ОБРАБОТКА ПРОКРУТКИ БАННЕРОВ =====
   const onBannerScrollEnd = (event) => {
     const contentOffset = event.nativeEvent.contentOffset;
-    // Учитываем padding левого края (16)
     const adjustedOffset = contentOffset.x + 16;
     const index = Math.round(adjustedOffset / (BANNER_WIDTH + BANNER_GAP));
     const validIndex = Math.min(Math.max(0, index), banners.length - 1);
@@ -386,7 +389,7 @@ export default function CatalogScreen({ navigation }) {
         </TouchableOpacity>
       </LinearGradient>
 
-      {/* ===== ИСПРАВЛЕННЫЕ БАННЕРЫ ===== */}
+      {/* ===== БАННЕРЫ С ЗАЦИКЛИВАНИЕМ ===== */}
       {banners.length > 0 && (
         <View style={styles.bannerWrapper}>
           <FlatList
@@ -395,9 +398,7 @@ export default function CatalogScreen({ navigation }) {
             renderItem={renderBanner}
             keyExtractor={(item, index) => item.banner_id?.toString() || index.toString()}
             horizontal
-            pagingEnabled
             showsHorizontalScrollIndicator={false}
-            snapToAlignment="start"
             snapToInterval={BANNER_WIDTH + BANNER_GAP}
             decelerationRate="fast"
             onScrollBeginDrag={onBannerScrollBegin}
@@ -405,7 +406,6 @@ export default function CatalogScreen({ navigation }) {
             scrollEventThrottle={16}
             style={styles.bannerFlatList}
             contentContainerStyle={styles.bannerContent}
-            // Добавляем getItemLayout для производительности
             getItemLayout={(data, index) => ({
               length: BANNER_WIDTH + BANNER_GAP,
               offset: (BANNER_WIDTH + BANNER_GAP) * index,
