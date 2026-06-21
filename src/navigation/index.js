@@ -60,14 +60,14 @@ const ClientTabs = () => {
 export default function AppNavigator({ isLoggedIn, onAuthStateChange }) {
   const navigationRef = React.useRef(null);
 
-  React.useEffect(() => {
-    if (!isLoggedIn && navigationRef.current) {
-      navigationRef.current.reset({
-        index: 0,
-        routes: [{ name: 'Login' }],
-      });
-    }
-  }, [isLoggedIn]);
+ React.useEffect(() => {
+  if (!isLoggedIn && navigationRef.current) {
+    navigationRef.current.resetRoot({
+      index: 0,
+      routes: [{ name: 'Login' }],
+    });
+  }
+}, [isLoggedIn]);
 
   return (
     <NavigationContainer ref={navigationRef}>
