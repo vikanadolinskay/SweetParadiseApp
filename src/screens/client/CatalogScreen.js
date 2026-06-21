@@ -404,7 +404,6 @@ export default function CatalogScreen({ navigation }) {
             onScrollBeginDrag={onBannerScrollBegin}
             onMomentumScrollEnd={onBannerScrollEnd}
             scrollEventThrottle={16}
-            style={styles.bannerFlatList}
             contentContainerStyle={styles.bannerContent}
             getItemLayout={(data, index) => ({
               length: BANNER_WIDTH + BANNER_GAP,
@@ -560,11 +559,9 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 4,
   },
-  bannerFlatList: {
-    paddingHorizontal: 16,
-  },
   bannerContent: {
-    paddingHorizontal: 0,
+    paddingLeft: 16,
+    paddingRight: 16,
   },
   bannerContainer: {
     width: BANNER_WIDTH,

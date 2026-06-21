@@ -1,4 +1,3 @@
-// src/navigation/index.js
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -20,23 +19,6 @@ import CheckoutScreen from '../screens/client/CheckoutScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
-
-// Градиентная иконка
-const GradientIcon = ({ name, size, focused }) => {
-  if (!focused) {
-    return <Ionicons name={name} size={size} color="#CCCCCC" />;
-  }
-  return (
-    <LinearGradient
-      colors={['#FFBCD9', '#FFCBBB']}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={{ padding: 0 }}
-    >
-      <Ionicons name={name} size={size} color="#fff" />
-    </LinearGradient>
-  );
-};
 
 const ClientTabs = () => {
   return (
@@ -76,17 +58,21 @@ const ClientTabs = () => {
 };
 
 export default function AppNavigator({ isLoggedIn, onAuthStateChange }) {
+  const navigationRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (!isLoggedIn && navigationRef.current) {
+      navigationRef.current.reset({
+        index: 0,
+        routes: [{ name: 'Login' }],
+      });
+    }
+  }, [isLoggedIn]);
+
   return (
-    <NavigationContainer>
-      <Stack.Navigator initialRouteName={isLoggedIn ? "ClientTabs" : "Login"} screenOptions={{ headerShown: false }}>
-        {!isLoggedIn ? (
-          <>
-            <Stack.Screen name="Login">
-              {(props) => <LoginScreen {...props} onLogin={onAuthStateChange} />}
-            </Stack.Screen>
-            <Stack.Screen name="Register" component={RegisterScreen} />
-          </>
-        ) : (
+    <NavigationContainer ref={navigationRef}>
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        {isLoggedIn ? (
           <>
             <Stack.Screen name="ClientTabs" component={ClientTabs} />
             <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
@@ -95,6 +81,16 @@ export default function AppNavigator({ isLoggedIn, onAuthStateChange }) {
             <Stack.Screen name="Customize3" component={CustomizeScreen3} />
             <Stack.Screen name="Customize4" component={CustomizeScreen4} />
             <Stack.Screen name="Checkout" component={CheckoutScreen} />
+            <Stack.Screen name="Login">
+              {(props) => <LoginScreen {...props} onLogin={onAuthStateChange} />}
+            </Stack.Screen>
+          </>
+        ) : (
+          <>
+            <Stack.Screen name="Login">
+              {(props) => <LoginScreen {...props} onLogin={onAuthStateChange} />}
+            </Stack.Screen>
+            <Stack.Screen name="Register" component={RegisterScreen} />
           </>
         )}
       </Stack.Navigator>

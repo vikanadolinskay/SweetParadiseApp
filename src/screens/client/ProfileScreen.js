@@ -18,9 +18,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
-import { getUserById, updateUserProfile, deleteUserAccount, executeQuery, getOfflineOrdersCount } from '../../services/database';
+import { getUserById, updateUserProfile, deleteUserAccount, executeQuery, getOfflineOrdersCount, authenticateUser } from '../../services/database';
 import { showGradientAlert } from '../../components/GradientAlert';
 import QRCode from 'react-native-qrcode-svg';
+import bcrypt from 'react-native-bcrypt';
 
 export default function ProfileScreen({ navigation, onAuthStateChange }) {
   const [user, setUser] = useState(null);
@@ -70,6 +71,13 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
   const [userEditForm, setUserEditForm] = useState({
     bonus_points: '',
     personal_discount: '',
+  });
+
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
   });
 
   const pickupAddresses = [
@@ -303,6 +311,41 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
     loadAdminData();
   };
 
+  const handleChangePassword = async () => {
+    const { currentPassword, newPassword, confirmPassword } = passwordForm;
+    
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      showGradientAlert({ title: 'Ошибка', message: 'Заполните все поля' });
+      return;
+    }
+    
+    if (newPassword !== confirmPassword) {
+      showGradientAlert({ title: 'Ошибка', message: 'Новые пароли не совпадают' });
+      return;
+    }
+    
+    if (newPassword.length < 6) {
+      showGradientAlert({ title: 'Ошибка', message: 'Пароль должен быть не менее 6 символов' });
+      return;
+    }
+    
+    const authResult = await authenticateUser(user.email, currentPassword);
+    
+    if (!authResult.success) {
+      showGradientAlert({ title: 'Ошибка', message: 'Неверный текущий пароль' });
+      return;
+    }
+    
+    const salt = bcrypt.genSaltSync(12);
+    const hashedPassword = bcrypt.hashSync(newPassword, salt);
+    
+    await executeQuery('UPDATE users SET password_hash = ? WHERE user_id = ?', [hashedPassword, user.user_id]);
+    
+    showGradientAlert({ title: 'Успешно', message: 'Пароль изменён' });
+    setShowPasswordModal(false);
+    setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  };
+
   const handleEditProfile = () => {
     setIsEditing(true);
   };
@@ -345,22 +388,9 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
           text: 'Выйти',
           style: 'destructive',
           onPress: async () => {
-            try {
-              await AsyncStorage.clear();
-              
-              if (onAuthStateChange) {
-                await onAuthStateChange();
-              }
-              
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'Login' }],
-              });
-            } catch (error) {
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'Login' }],
-              });
+            await AsyncStorage.clear();
+            if (onAuthStateChange) {
+              await onAuthStateChange();
             }
           }
         }
@@ -382,21 +412,12 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
               if (user?.user_id) {
                 await deleteUserAccount(user.user_id);
               }
-              await AsyncStorage.clear();
-              
-              if (onAuthStateChange) {
-                await onAuthStateChange();
-              }
-              
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'Login' }],
-              });
             } catch (error) {
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'Login' }],
-              });
+              console.error('Delete error:', error);
+            }
+            await AsyncStorage.clear();
+            if (onAuthStateChange) {
+              await onAuthStateChange();
             }
           }
         }
@@ -590,19 +611,21 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
                 <Text style={styles.adminStatusText}>{STATUS_RU[order.status]}</Text>
               </View>
             </View>
-            <View style={styles.adminStatusButtons}>
-              {Object.keys(STATUS_RU).map(status => (
-                <TouchableOpacity
-                  key={status}
-                  style={[styles.adminStatusBtn, order.status === status && styles.adminStatusBtnActive]}
-                  onPress={() => updateOrderStatus(order.order_id, status)}
-                >
-                  <Text style={[styles.adminStatusBtnText, order.status === status && styles.adminStatusBtnTextActive]}>
-                    {STATUS_RU[status]}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            {order.status !== 'cancelled' && order.status !== 'completed' && (
+              <View style={styles.adminStatusButtons}>
+                {Object.keys(STATUS_RU).map(status => (
+                  <TouchableOpacity
+                    key={status}
+                    style={[styles.adminStatusBtn, order.status === status && styles.adminStatusBtnActive]}
+                    onPress={() => updateOrderStatus(order.order_id, status)}
+                  >
+                    <Text style={[styles.adminStatusBtnText, order.status === status && styles.adminStatusBtnTextActive]}>
+                      {STATUS_RU[status]}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
           </View>
         ))}
         {filteredOrders.length === 0 && (
@@ -994,6 +1017,9 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
                   <TouchableOpacity style={styles.editProfileBtn} onPress={handleEditProfile}><Text style={styles.editProfileBtnText}>Редактировать</Text></TouchableOpacity>
                   <TouchableOpacity style={styles.deleteProfileBtn} onPress={handleDeleteProfile}><Text style={styles.deleteProfileBtnText}>Удалить профиль</Text></TouchableOpacity>
                 </View>
+                <TouchableOpacity style={styles.changePasswordBtn} onPress={() => setShowPasswordModal(true)}>
+                  <Text style={styles.changePasswordBtnText}>Сменить пароль</Text>
+                </TouchableOpacity>
               </>
             )}
           </View>
@@ -1043,6 +1069,49 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
           </TouchableOpacity>
         </ScrollView>
       )}
+
+      {/* Модалка смены пароля */}
+      <Modal visible={showPasswordModal} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Смена пароля</Text>
+            
+            <TextInput
+              style={styles.input}
+              placeholder="Текущий пароль"
+              secureTextEntry
+              value={passwordForm.currentPassword}
+              onChangeText={t => setPasswordForm({...passwordForm, currentPassword: t})}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Новый пароль"
+              secureTextEntry
+              value={passwordForm.newPassword}
+              onChangeText={t => setPasswordForm({...passwordForm, newPassword: t})}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Подтвердите новый пароль"
+              secureTextEntry
+              value={passwordForm.confirmPassword}
+              onChangeText={t => setPasswordForm({...passwordForm, confirmPassword: t})}
+            />
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.cancelModalBtn} onPress={() => {
+                setShowPasswordModal(false);
+                setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+              }}>
+                <Text style={styles.cancelModalText}>Отмена</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.saveModalBtn} onPress={handleChangePassword}>
+                <Text style={styles.saveModalText}>Сохранить</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <Modal transparent={true} visible={showPickupModal} animationType="fade" onRequestClose={() => setShowPickupModal(false)}>
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowPickupModal(false)}>
@@ -1112,6 +1181,8 @@ const styles = StyleSheet.create({
   editProfileBtnText: { color: '#fff', fontWeight: '600', fontSize: 14, fontFamily: 'Poppins-SemiBold' },
   deleteProfileBtn: { flex: 1, backgroundColor: 'transparent', padding: 12, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#FF147A' },
   deleteProfileBtnText: { color: '#FF147A', fontWeight: '600', fontSize: 14, fontFamily: 'Poppins-SemiBold' },
+  changePasswordBtn: { backgroundColor: 'transparent', padding: 12, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#FF147A', marginTop: 8 },
+  changePasswordBtnText: { color: '#FF147A', fontWeight: '600', fontSize: 14, fontFamily: 'Poppins-SemiBold' },
   loyaltyCard: { paddingHorizontal: 16, marginVertical: 16 },
   loyaltyGradient: { borderRadius: 16, padding: 20 },
   loyaltyTitle: { fontSize: 16, fontWeight: 'bold', color: '#fff', marginBottom: 16, fontFamily: 'Poppins-Bold' },

@@ -320,7 +320,17 @@ export default function CheckoutScreen({ route, navigation }) {
             minuteInterval={30}
             onChange={(event, selectedTime) => {
               setShowTimePicker(false);
-              if (selectedTime) setPickupTime(selectedTime);
+              if (selectedTime) {
+                const minutes = selectedTime.getMinutes();
+                if (minutes < 15) {
+                  selectedTime.setMinutes(0);
+                } else if (minutes < 45) {
+                  selectedTime.setMinutes(30);
+                } else {
+                  selectedTime.setMinutes(30);
+                }
+                setPickupTime(selectedTime);
+              }
             }}
           />
         )}
