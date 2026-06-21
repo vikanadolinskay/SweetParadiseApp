@@ -78,6 +78,9 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
     newPassword: '',
     confirmPassword: '',
   });
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const pickupAddresses = [
     'г. Таганрог, ул. Петровская 711',
@@ -359,7 +362,7 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
     setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
   };
 
-    const handleEditProfile = () => {
+  const handleEditProfile = () => {
     setIsEditing(true);
   };
 
@@ -402,6 +405,7 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
           style: 'destructive',
           onPress: async () => {
             await AsyncStorage.clear();
+            await new Promise(resolve => setTimeout(resolve, 50));
             if (onAuthStateChange) {
               await onAuthStateChange();
             }
@@ -429,6 +433,7 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
               console.error('Delete error:', error);
             }
             await AsyncStorage.clear();
+            await new Promise(resolve => setTimeout(resolve, 50));
             if (onAuthStateChange) {
               await onAuthStateChange();
             }
@@ -438,7 +443,7 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
     );
   };
 
-  const handleAvatarPress = () => {
+    const handleAvatarPress = () => {
     setShowAvatarMenu(true);
   };
 
@@ -1096,27 +1101,65 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Смена пароля</Text>
             
-            <TextInput
-              style={styles.input}
-              placeholder="Текущий пароль"
-              secureTextEntry
-              value={passwordForm.currentPassword}
-              onChangeText={t => setPasswordForm({...passwordForm, currentPassword: t})}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Новый пароль"
-              secureTextEntry
-              value={passwordForm.newPassword}
-              onChangeText={t => setPasswordForm({...passwordForm, newPassword: t})}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Подтвердите новый пароль"
-              secureTextEntry
-              value={passwordForm.confirmPassword}
-              onChangeText={t => setPasswordForm({...passwordForm, confirmPassword: t})}
-            />
+            <View style={styles.passwordWrapper}>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Текущий пароль"
+                secureTextEntry={!showCurrentPassword}
+                value={passwordForm.currentPassword}
+                onChangeText={t => setPasswordForm({...passwordForm, currentPassword: t})}
+              />
+              <TouchableOpacity
+                style={styles.eyeIcon}
+                onPress={() => setShowCurrentPassword(!showCurrentPassword)}
+              >
+                <Ionicons
+                  name={showCurrentPassword ? 'eye-off' : 'eye'}
+                  size={22}
+                  color="#828282"
+                />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.passwordWrapper}>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Новый пароль"
+                secureTextEntry={!showNewPassword}
+                value={passwordForm.newPassword}
+                onChangeText={t => setPasswordForm({...passwordForm, newPassword: t})}
+              />
+              <TouchableOpacity
+                style={styles.eyeIcon}
+                onPress={() => setShowNewPassword(!showNewPassword)}
+              >
+                <Ionicons
+                  name={showNewPassword ? 'eye-off' : 'eye'}
+                  size={22}
+                  color="#828282"
+                />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.passwordWrapper}>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Подтвердите новый пароль"
+                secureTextEntry={!showConfirmPassword}
+                value={passwordForm.confirmPassword}
+                onChangeText={t => setPasswordForm({...passwordForm, confirmPassword: t})}
+              />
+              <TouchableOpacity
+                style={styles.eyeIcon}
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+              >
+                <Ionicons
+                  name={showConfirmPassword ? 'eye-off' : 'eye'}
+                  size={22}
+                  color="#828282"
+                />
+              </TouchableOpacity>
+            </View>
             
             <View style={styles.modalButtons}>
               <TouchableOpacity style={styles.cancelModalBtn} onPress={() => {
@@ -1191,6 +1234,9 @@ const styles = StyleSheet.create({
   fieldLabel: { fontSize: 14, color: '#999', marginBottom: 4, fontFamily: 'Poppins-Regular' },
   input: { borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8, padding: 12, fontSize: 14, color: '#2C2C2C', fontFamily: 'Poppins-Regular' },
   textArea: { minHeight: 80, textAlignVertical: 'top' },
+  passwordWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F5F5F5', borderRadius: 8, paddingHorizontal: 12, marginBottom: 12 },
+  passwordInput: { flex: 1, paddingVertical: 12, fontSize: 14, color: '#2C2C2C', fontFamily: 'Poppins-Regular' },
+  eyeIcon: { padding: 4 },
   editButtons: { flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 16 },
   saveBtn: { flex: 1, backgroundColor: '#FF147A', padding: 12, borderRadius: 8, alignItems: 'center' },
   saveBtnText: { color: '#fff', fontWeight: '600', fontSize: 14, fontFamily: 'Poppins-SemiBold' },
@@ -1218,50 +1264,15 @@ const styles = StyleSheet.create({
   spendBtnText: { color: '#FF147A', fontWeight: '600', fontSize: 12, fontFamily: 'Poppins-SemiBold' },
   discountText: { fontSize: 14, color: '#fff', textAlign: 'center', fontFamily: 'Poppins-Regular' },
   aboutSection: {
-    marginHorizontal: 16,
-    marginBottom: 16,
-    padding: 16,
-    backgroundColor: '#FFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#F0F0F0',
+    marginHorizontal: 16, marginBottom: 16, padding: 16, backgroundColor: '#FFF',
+    borderRadius: 12, borderWidth: 1, borderColor: '#F0F0F0',
   },
-  aboutHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    gap: 8,
-  },
-  aboutTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FF147A',
-    fontFamily: 'Poppins-SemiBold',
-  },
-  aboutPhone: {
-    fontSize: 14,
-    color: '#FF147A',
-    marginBottom: 6,
-    fontFamily: 'Poppins-Medium',
-    textDecorationLine: 'underline',
-  },
-  aboutEmail: {
-    fontSize: 13,
-    color: '#666',
-    marginBottom: 6,
-    fontFamily: 'Poppins-Regular',
-  },
-  aboutAddress: {
-    fontSize: 13,
-    color: '#666',
-    marginBottom: 6,
-    fontFamily: 'Poppins-Regular',
-  },
-  aboutHours: {
-    fontSize: 13,
-    color: '#666',
-    fontFamily: 'Poppins-Regular',
-  },
+  aboutHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 },
+  aboutTitle: { fontSize: 16, fontWeight: '600', color: '#FF147A', fontFamily: 'Poppins-SemiBold' },
+  aboutPhone: { fontSize: 14, color: '#FF147A', marginBottom: 6, fontFamily: 'Poppins-Medium', textDecorationLine: 'underline' },
+  aboutEmail: { fontSize: 13, color: '#666', marginBottom: 6, fontFamily: 'Poppins-Regular' },
+  aboutAddress: { fontSize: 13, color: '#666', marginBottom: 6, fontFamily: 'Poppins-Regular' },
+  aboutHours: { fontSize: 13, color: '#666', fontFamily: 'Poppins-Regular' },
   logoutBtn: { marginHorizontal: 16, marginVertical: 20, backgroundColor: '#FF147A', padding: 14, borderRadius: 12, alignItems: 'center' },
   logoutBtnText: { color: '#fff', fontSize: 16, fontWeight: '600', fontFamily: 'Poppins-SemiBold' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
