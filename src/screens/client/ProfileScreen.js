@@ -12,17 +12,19 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
-import { getUserById, updateUserProfile, deleteUserAccount, executeQuery, getOfflineOrdersCount, authenticateUser } from '../../services/database';
+import { getUserById, updateUserProfile, deleteUserAccount, executeQuery, getOfflineOrdersCount, changeUserPassword } from '../../services/database';
 import { showGradientAlert } from '../../components/GradientAlert';
+import { useAuth } from '../../components/ProtectedRoute';
 import QRCode from 'react-native-qrcode-svg';
 
 export default function ProfileScreen({ navigation, onAuthStateChange }) {
+  const { logout, deleteAccount } = useAuth();
+  
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [avatar, setAvatar] = useState(null);
@@ -49,7 +51,6 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
   const [adminUsers, setAdminUsers] = useState([]);
   const [adminPromotions, setAdminPromotions] = useState([]);
   const [adminLoading, setAdminLoading] = useState(false);
-  const [orderStatusFilter, setOrderStatusFilter] = useState('all');
   
   const [productModalVisible, setProductModalVisible] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -65,22 +66,13 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
     start_date: '', end_date: '', is_active: 1
   });
 
-  const [userEditModalVisible, setUserEditModalVisible] = useState(false);
-  const [editingUser, setEditingUser] = useState(null);
-  const [userEditForm, setUserEditForm] = useState({
-    bonus_points: '',
-    personal_discount: '',
-  });
-
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
   });
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
 
   const pickupAddresses = [
     'г. Таганрог, ул. Петровская 711',
@@ -97,9 +89,27 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
     cancelled: 'Отменён'
   };
 
+  const [logoutTrigger, setLogoutTrigger] = useState(0);
+
   useEffect(() => {
     loadUserData();
   }, []);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const userStr = await AsyncStorage.getItem('user');
+      if (!userStr) {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Login' }],
+        });
+        setTimeout(() => {
+          navigation.replace('Login');
+        }, 100);
+      }
+    };
+    checkAuth();
+  }, [logoutTrigger]);
 
   useEffect(() => {
     if (showAdminPanel && user?.role === 'admin') {
@@ -273,95 +283,6 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
     showGradientAlert({ title: 'Успешно', message: 'Роль обновлена' });
   };
 
-  const saveUserBonus = async () => {
-    if (!editingUser) return;
-    
-    const bonusPoints = parseInt(userEditForm.bonus_points) || 0;
-    const discount = parseFloat(userEditForm.personal_discount) || 0;
-    
-    if (discount < 0 || discount > 100) {
-      showGradientAlert({ title: 'Ошибка', message: 'Скидка должна быть от 0 до 100%' });
-      return;
-    }
-
-    if (bonusPoints !== 0) {
-      await executeQuery(
-        'UPDATE users SET loyalty_points = loyalty_points + ? WHERE user_id = ?',
-        [bonusPoints, editingUser.user_id]
-      );
-      
-      await executeQuery(
-        `INSERT INTO loyalty_history (user_id, points_change, reason, created_at)
-         VALUES (?, ?, ?, CURRENT_TIMESTAMP)`,
-        [editingUser.user_id, bonusPoints, bonusPoints > 0 ? 'Начисление бонусов администратором' : 'Списание бонусов администратором']
-      );
-    }
-    
-    await executeQuery(
-      'UPDATE users SET personal_discount = ? WHERE user_id = ?',
-      [discount, editingUser.user_id]
-    );
-
-    showGradientAlert({ 
-      title: 'Успешно', 
-      message: `Бонусы: ${bonusPoints > 0 ? '+' + bonusPoints : bonusPoints}\nСкидка: ${discount}%` 
-    });
-    
-    setUserEditModalVisible(false);
-    setEditingUser(null);
-    setUserEditForm({ bonus_points: '', personal_discount: '' });
-    loadAdminData();
-  };
-
-  const resetUserPassword = async (userId, userName) => {
-    Alert.alert(
-      'Сброс пароля',
-      `Сбросить пароль для ${userName} на стандартный "123456"?`,
-      [
-        { text: 'Отмена', style: 'cancel' },
-        {
-          text: 'Сбросить',
-          onPress: async () => {
-            await executeQuery("UPDATE users SET password_hash = '123456' WHERE user_id = ?", [userId]);
-            showGradientAlert({ title: 'Успешно', message: 'Пароль сброшен на 123456' });
-          }
-        }
-      ]
-    );
-  };
-
-  const handleChangePassword = async () => {
-    const { currentPassword, newPassword, confirmPassword } = passwordForm;
-    
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      showGradientAlert({ title: 'Ошибка', message: 'Заполните все поля' });
-      return;
-    }
-    
-    if (newPassword !== confirmPassword) {
-      showGradientAlert({ title: 'Ошибка', message: 'Новые пароли не совпадают' });
-      return;
-    }
-    
-    if (newPassword.length < 6) {
-      showGradientAlert({ title: 'Ошибка', message: 'Пароль должен быть не менее 6 символов' });
-      return;
-    }
-    
-    const authResult = await authenticateUser(user.email, currentPassword);
-    
-    if (!authResult.success) {
-      showGradientAlert({ title: 'Ошибка', message: 'Неверный текущий пароль' });
-      return;
-    }
-    
-    await executeQuery('UPDATE users SET password_hash = ? WHERE user_id = ?', [newPassword, user.user_id]);
-    
-    showGradientAlert({ title: 'Успешно', message: 'Пароль изменён' });
-    setShowPasswordModal(false);
-    setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-  };
-
   const handleEditProfile = () => {
     setIsEditing(true);
   };
@@ -394,56 +315,57 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
     });
   };
 
+  // ===== СМЕНА ПАРОЛЯ =====
+  const handleChangePassword = async () => {
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      showGradientAlert({ title: 'Ошибка', message: 'Заполните все поля' });
+      return;
+    }
+    
+    if (passwordForm.newPassword.length < 6) {
+      showGradientAlert({ title: 'Ошибка', message: 'Новый пароль должен содержать минимум 6 символов' });
+      return;
+    }
+    
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      showGradientAlert({ title: 'Ошибка', message: 'Пароли не совпадают' });
+      return;
+    }
+    
+    setPasswordLoading(true);
+    
+    try {
+      const result = await changeUserPassword(
+        user.user_id,
+        passwordForm.currentPassword,
+        passwordForm.newPassword
+      );
+      
+      if (result.success) {
+        showGradientAlert({ title: 'Успешно', message: result.message });
+        setShowPasswordModal(false);
+        setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      } else {
+        showGradientAlert({ title: 'Ошибка', message: result.error });
+      }
+    } catch (error) {
+      showGradientAlert({ title: 'Ошибка', message: 'Не удалось сменить пароль' });
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
+  // ===== ВЫХОД ИЗ АККАУНТА (через useAuth) =====
   const handleLogout = () => {
-    Alert.alert(
-      'Выход',
-      'Вы уверены, что хотите выйти из аккаунта?',
-      [
-        { text: 'Отмена', style: 'cancel' },
-        {
-          text: 'Выйти',
-          style: 'destructive',
-          onPress: async () => {
-            await AsyncStorage.clear();
-            await new Promise(resolve => setTimeout(resolve, 50));
-            if (onAuthStateChange) {
-              await onAuthStateChange();
-            }
-          }
-        }
-      ]
-    );
+    logout(navigation);
   };
 
+  // ===== УДАЛЕНИЕ ПРОФИЛЯ (через useAuth) =====
   const handleDeleteProfile = () => {
-    Alert.alert(
-      'Удаление профиля',
-      'Вы уверены, что хотите удалить профиль? Это действие необратимо.',
-      [
-        { text: 'Отмена', style: 'cancel' },
-        {
-          text: 'Удалить',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              if (user?.user_id) {
-                await deleteUserAccount(user.user_id);
-              }
-            } catch (error) {
-              console.error('Delete error:', error);
-            }
-            await AsyncStorage.clear();
-            await new Promise(resolve => setTimeout(resolve, 50));
-            if (onAuthStateChange) {
-              await onAuthStateChange();
-            }
-          }
-        }
-      ]
-    );
+    deleteAccount(navigation);
   };
 
-    const handleAvatarPress = () => {
+  const handleAvatarPress = () => {
     setShowAvatarMenu(true);
   };
 
@@ -564,7 +486,7 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
             <TouchableOpacity
               key={tab.id}
               style={[styles.adminTab, adminTab === tab.id && styles.adminTabActive]}
-              onPress={() => { setAdminTab(tab.id); setOrderStatusFilter('all'); }}
+              onPress={() => setAdminTab(tab.id)}
             >
               <Ionicons name={tab.icon} size={20} color={adminTab === tab.id ? '#FF147A' : '#666'} />
               <Text style={[styles.adminTabText, adminTab === tab.id && styles.adminTabTextActive]}>
@@ -588,70 +510,44 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
     );
   };
 
-  const renderOrdersTab = () => {
-    const filteredOrders = orderStatusFilter === 'all' 
-      ? adminOrders 
-      : adminOrders.filter(order => order.status === orderStatusFilter);
-
-    return (
-      <>
-        <TouchableOpacity style={styles.adminRefreshBtn} onPress={loadAdminData}>
-          <Text style={styles.adminRefreshText}>Обновить</Text>
-        </TouchableOpacity>
-
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
-          {['all', ...Object.keys(STATUS_RU)].map(status => (
-            <TouchableOpacity
-              key={status}
-              style={[styles.filterChip, orderStatusFilter === status && styles.filterChipActive]}
-              onPress={() => setOrderStatusFilter(status)}
-            >
-              <Text style={[styles.filterChipText, orderStatusFilter === status && styles.filterChipTextActive]}>
-                {status === 'all' ? 'Все' : STATUS_RU[status]}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
-        {filteredOrders.map(order => (
-          <View key={order.order_id} style={styles.adminOrderCard}>
-            <View style={styles.adminOrderHeader}>
-              <Text style={styles.adminOrderId}>Заказ #{order.order_id}</Text>
-              <Text style={styles.adminOrderDate}>
-                {new Date(order.created_at).toLocaleDateString()}
-              </Text>
-            </View>
-            <Text style={styles.adminOrderUser}>{order.full_name} ({order.email})</Text>
-            <Text style={styles.adminOrderTotal}>{order.total_amount} руб.</Text>
-            <View style={styles.adminOrderStatusRow}>
-              <Text style={styles.adminOrderStatusLabel}>Статус:</Text>
-              <View style={[styles.adminStatusBadge, getStatusStyle(order.status)]}>
-                <Text style={styles.adminStatusText}>{STATUS_RU[order.status]}</Text>
-              </View>
-            </View>
-            {order.status !== 'cancelled' && order.status !== 'completed' && (
-              <View style={styles.adminStatusButtons}>
-                {Object.keys(STATUS_RU).map(status => (
-                  <TouchableOpacity
-                    key={status}
-                    style={[styles.adminStatusBtn, order.status === status && styles.adminStatusBtnActive]}
-                    onPress={() => updateOrderStatus(order.order_id, status)}
-                  >
-                    <Text style={[styles.adminStatusBtnText, order.status === status && styles.adminStatusBtnTextActive]}>
-                      {STATUS_RU[status]}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
+  const renderOrdersTab = () => (
+    <>
+      <TouchableOpacity style={styles.adminRefreshBtn} onPress={loadAdminData}>
+        <Text style={styles.adminRefreshText}>Обновить</Text>
+      </TouchableOpacity>
+      {adminOrders.map(order => (
+        <View key={order.order_id} style={styles.adminOrderCard}>
+          <View style={styles.adminOrderHeader}>
+            <Text style={styles.adminOrderId}>Заказ #{order.order_id}</Text>
+            <Text style={styles.adminOrderDate}>
+              {new Date(order.created_at).toLocaleDateString()}
+            </Text>
           </View>
-        ))}
-        {filteredOrders.length === 0 && (
-          <Text style={{ textAlign: 'center', color: '#999', marginTop: 20 }}>Нет заказов</Text>
-        )}
-      </>
-    );
-  };
+          <Text style={styles.adminOrderUser}>{order.full_name} ({order.email})</Text>
+          <Text style={styles.adminOrderTotal}>{order.total_amount} руб.</Text>
+          <View style={styles.adminOrderStatusRow}>
+            <Text style={styles.adminOrderStatusLabel}>Статус:</Text>
+            <View style={[styles.adminStatusBadge, getStatusStyle(order.status)]}>
+              <Text style={styles.adminStatusText}>{STATUS_RU[order.status]}</Text>
+            </View>
+          </View>
+          <View style={styles.adminStatusButtons}>
+            {Object.keys(STATUS_RU).map(status => (
+              <TouchableOpacity
+                key={status}
+                style={[styles.adminStatusBtn, order.status === status && styles.adminStatusBtnActive]}
+                onPress={() => updateOrderStatus(order.order_id, status)}
+              >
+                <Text style={[styles.adminStatusBtnText, order.status === status && styles.adminStatusBtnTextActive]}>
+                  {STATUS_RU[status]}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      ))}
+    </>
+  );
 
   const renderProductsTab = () => (
     <>
@@ -751,7 +647,7 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
     </>
   );
 
-    const renderUsersTab = () => (
+  const renderUsersTab = () => (
     <>
       <TouchableOpacity style={styles.adminRefreshBtn} onPress={loadAdminData}>
         <Text style={styles.adminRefreshText}>Обновить</Text>
@@ -776,73 +672,8 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
               </TouchableOpacity>
             )}
           </View>
-          <TouchableOpacity 
-            style={styles.adminEditUserBtn}
-            onPress={() => {
-              setEditingUser(u);
-              setUserEditForm({
-                bonus_points: '',
-                personal_discount: String(u.personal_discount || 0),
-              });
-              setUserEditModalVisible(true);
-            }}
-          >
-            <Ionicons name="gift-outline" size={14} color="#FF147A" />
-            <Text style={styles.adminEditUserText}>Бонусы и скидка</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.adminResetPasswordBtn}
-            onPress={() => resetUserPassword(u.user_id, u.full_name)}
-          >
-            <Ionicons name="key-outline" size={14} color="#FF9800" />
-            <Text style={styles.adminResetPasswordText}>Сбросить пароль</Text>
-          </TouchableOpacity>
         </View>
       ))}
-
-      <Modal visible={userEditModalVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>
-              {editingUser?.full_name}
-            </Text>
-            <Text style={{ fontSize: 13, color: '#666', textAlign: 'center', marginBottom: 16 }}>
-              Текущие баллы: {editingUser?.loyalty_points} | Скидка: {editingUser?.personal_discount}%
-            </Text>
-            
-            <Text style={styles.label}>Начислить/списать баллы (+/-):</Text>
-            <TextInput 
-              style={styles.input} 
-              placeholder="Например: 100 или -50" 
-              keyboardType="numeric" 
-              value={userEditForm.bonus_points} 
-              onChangeText={t => setUserEditForm({...userEditForm, bonus_points: t})} 
-            />
-            
-            <Text style={styles.label}>Персональная скидка (%):</Text>
-            <TextInput 
-              style={styles.input} 
-              placeholder="0-100" 
-              keyboardType="numeric" 
-              value={userEditForm.personal_discount} 
-              onChangeText={t => setUserEditForm({...userEditForm, personal_discount: t})} 
-            />
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.cancelModalBtn} onPress={() => {
-                setUserEditModalVisible(false);
-                setEditingUser(null);
-                setUserEditForm({ bonus_points: '', personal_discount: '' });
-              }}>
-                <Text style={styles.cancelModalText}>Отмена</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.saveModalBtn} onPress={saveUserBonus}>
-                <Text style={styles.saveModalText}>Сохранить</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </>
   );
 
@@ -862,26 +693,9 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
         <View key={promo.promotion_id} style={styles.adminPromoCard}>
           <View style={styles.adminPromoHeader}>
             <Text style={styles.adminPromoName}>{promo.name}</Text>
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-              <TouchableOpacity onPress={() => {
-                setEditingPromo(promo);
-                setPromoForm({
-                  name: promo.name,
-                  type: promo.type,
-                  value: String(promo.value),
-                  product_id: promo.product_id,
-                  start_date: promo.start_date,
-                  end_date: promo.end_date,
-                  is_active: promo.is_active
-                });
-                setPromoModalVisible(true);
-              }}>
-                <Ionicons name="create-outline" size={20} color="#FF147A" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => deletePromotion(promo.promotion_id)}>
-                <Ionicons name="trash-outline" size={20} color="#FF4444" />
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity onPress={() => deletePromotion(promo.promotion_id)}>
+              <Ionicons name="trash-outline" size={20} color="#FF4444" />
+            </TouchableOpacity>
           </View>
           <Text style={styles.adminPromoInfo}>Тип: {promo.type}</Text>
           <Text style={styles.adminPromoInfo}>Значение: {promo.value}</Text>
@@ -1039,12 +853,18 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
                 <View style={styles.infoRow}><Text style={styles.infoLabel}>Номер телефона</Text><Text style={styles.infoValue}>{user?.phone || 'Не указан'}</Text></View>
                 <View style={styles.infoRow}><Text style={styles.infoLabel}>Электронная почта</Text><Text style={styles.infoValue}>{user?.email}</Text></View>
                 <View style={styles.actionButtons}>
-                  <TouchableOpacity style={styles.editProfileBtn} onPress={handleEditProfile}><Text style={styles.editProfileBtnText}>Редактировать</Text></TouchableOpacity>
-                  <TouchableOpacity style={styles.deleteProfileBtn} onPress={handleDeleteProfile}><Text style={styles.deleteProfileBtnText}>Удалить профиль</Text></TouchableOpacity>
+                  <TouchableOpacity style={styles.editProfileBtn} onPress={handleEditProfile}>
+                    <Text style={styles.editProfileBtnText}>Редактировать</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity style={styles.changePasswordBtn} onPress={() => setShowPasswordModal(true)}>
+                    <Text style={styles.changePasswordBtnText}>Сменить пароль</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity style={styles.deleteProfileBtn} onPress={handleDeleteProfile}>
+                    <Text style={styles.deleteProfileBtnText}>Удалить профиль</Text>
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity style={styles.changePasswordBtn} onPress={() => setShowPasswordModal(true)}>
-                  <Text style={styles.changePasswordBtnText}>Сменить пароль</Text>
-                </TouchableOpacity>
               </>
             )}
           </View>
@@ -1070,110 +890,86 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
             </LinearGradient>
           </View>
 
-          {/* О нас */}
-          <TouchableOpacity style={styles.aboutSection} onPress={() => {
-            showGradientAlert({ 
-              title: 'Sweet Paradise', 
-              message: 'Техническая поддержка:\n+7 (999) 123-45-67\n\nEmail: support@sweetparadise.ru\n\nАдрес: г. Таганрог, ул. Петровская, 711\n\nЧасы работы: ежедневно с 9:00 до 21:00'
-            });
-          }}>
-            <View style={styles.aboutHeader}>
-              <Ionicons name="information-circle-outline" size={22} color="#FF147A" />
-              <Text style={styles.aboutTitle}>О нас</Text>
-            </View>
-            <TouchableOpacity onPress={() => Linking.openURL('tel:+79991234567')}>
-              <Text style={styles.aboutPhone}>+7 (999) 123-45-67</Text>
-            </TouchableOpacity>
-            <Text style={styles.aboutEmail}>support@sweetparadise.ru</Text>
-            <Text style={styles.aboutAddress}>г. Таганрог, ул. Петровская, 711</Text>
-            <Text style={styles.aboutHours}>Ежедневно с 9:00 до 21:00</Text>
-          </TouchableOpacity>
-
           <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
             <Text style={styles.logoutBtnText}>Выход</Text>
           </TouchableOpacity>
         </ScrollView>
       )}
 
-      {/* Модалка смены пароля */}
-      <Modal visible={showPasswordModal} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Смена пароля</Text>
+      {/* ===== МОДАЛЬНОЕ ОКНО СМЕНЫ ПАРОЛЯ ===== */}
+      <Modal 
+        transparent={true} 
+        visible={showPasswordModal} 
+        animationType="fade"
+        onRequestClose={() => setShowPasswordModal(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1} 
+          onPress={() => setShowPasswordModal(false)}
+        >
+          <TouchableOpacity 
+            style={styles.passwordModal} 
+            activeOpacity={1}
+            onPress={e => e.stopPropagation()}
+          >
+            <Text style={styles.passwordModalTitle}>Смена пароля</Text>
             
-            <View style={styles.passwordWrapper}>
-              <TextInput
-                style={styles.passwordInput}
-                placeholder="Текущий пароль"
-                secureTextEntry={!showCurrentPassword}
-                value={passwordForm.currentPassword}
-                onChangeText={t => setPasswordForm({...passwordForm, currentPassword: t})}
-              />
-              <TouchableOpacity
-                style={styles.eyeIcon}
-                onPress={() => setShowCurrentPassword(!showCurrentPassword)}
+            <Text style={styles.passwordLabel}>Текущий пароль</Text>
+            <TextInput
+              style={styles.passwordInput}
+              placeholder="Введите текущий пароль"
+              placeholderTextColor="#999"
+              secureTextEntry
+              value={passwordForm.currentPassword}
+              onChangeText={(text) => setPasswordForm({...passwordForm, currentPassword: text})}
+            />
+            
+            <Text style={styles.passwordLabel}>Новый пароль</Text>
+            <TextInput
+              style={styles.passwordInput}
+              placeholder="Введите новый пароль (мин. 6 символов)"
+              placeholderTextColor="#999"
+              secureTextEntry
+              value={passwordForm.newPassword}
+              onChangeText={(text) => setPasswordForm({...passwordForm, newPassword: text})}
+            />
+            
+            <Text style={styles.passwordLabel}>Подтверждение пароля</Text>
+            <TextInput
+              style={styles.passwordInput}
+              placeholder="Повторите новый пароль"
+              placeholderTextColor="#999"
+              secureTextEntry
+              value={passwordForm.confirmPassword}
+              onChangeText={(text) => setPasswordForm({...passwordForm, confirmPassword: text})}
+            />
+            
+            <View style={styles.passwordModalButtons}>
+              <TouchableOpacity 
+                style={styles.passwordCancelBtn} 
+                onPress={() => {
+                  setShowPasswordModal(false);
+                  setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                }}
               >
-                <Ionicons
-                  name={showCurrentPassword ? 'eye-off' : 'eye'}
-                  size={22}
-                  color="#828282"
-                />
+                <Text style={styles.passwordCancelText}>Отмена</Text>
               </TouchableOpacity>
-            </View>
-            
-            <View style={styles.passwordWrapper}>
-              <TextInput
-                style={styles.passwordInput}
-                placeholder="Новый пароль"
-                secureTextEntry={!showNewPassword}
-                value={passwordForm.newPassword}
-                onChangeText={t => setPasswordForm({...passwordForm, newPassword: t})}
-              />
-              <TouchableOpacity
-                style={styles.eyeIcon}
-                onPress={() => setShowNewPassword(!showNewPassword)}
+              
+              <TouchableOpacity 
+                style={styles.passwordSaveBtn} 
+                onPress={handleChangePassword}
+                disabled={passwordLoading}
               >
-                <Ionicons
-                  name={showNewPassword ? 'eye-off' : 'eye'}
-                  size={22}
-                  color="#828282"
-                />
+                {passwordLoading ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.passwordSaveText}>Сохранить</Text>
+                )}
               </TouchableOpacity>
             </View>
-            
-            <View style={styles.passwordWrapper}>
-              <TextInput
-                style={styles.passwordInput}
-                placeholder="Подтвердите новый пароль"
-                secureTextEntry={!showConfirmPassword}
-                value={passwordForm.confirmPassword}
-                onChangeText={t => setPasswordForm({...passwordForm, confirmPassword: t})}
-              />
-              <TouchableOpacity
-                style={styles.eyeIcon}
-                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-              >
-                <Ionicons
-                  name={showConfirmPassword ? 'eye-off' : 'eye'}
-                  size={22}
-                  color="#828282"
-                />
-              </TouchableOpacity>
-            </View>
-            
-            <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.cancelModalBtn} onPress={() => {
-                setShowPasswordModal(false);
-                setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-              }}>
-                <Text style={styles.cancelModalText}>Отмена</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.saveModalBtn} onPress={handleChangePassword}>
-                <Text style={styles.saveModalText}>Сохранить</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
 
       <Modal transparent={true} visible={showPickupModal} animationType="fade" onRequestClose={() => setShowPickupModal(false)}>
@@ -1220,11 +1016,22 @@ const styles = StyleSheet.create({
   roleText: { fontSize: 12, color: '#FF147A', fontWeight: '500' },
   userAddress: { fontSize: 14, color: '#FF147A', marginTop: 4, textAlign: 'center', fontFamily: 'Poppins-Regular' },
   offlineBadge: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF3E0',
-    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, marginTop: 12,
-    borderWidth: 1, borderColor: '#FFE0B2',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF3E0',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#FFE0B2',
   },
-  offlineBadgeText: { fontSize: 12, color: '#FF9800', marginLeft: 8, fontFamily: 'Poppins-Medium' },
+  offlineBadgeText: {
+    fontSize: 12,
+    color: '#FF9800',
+    marginLeft: 8,
+    fontFamily: 'Poppins-Medium',
+  },
   section: { padding: 16, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
   sectionTitle: { fontSize: 14, fontWeight: '600', color: '#FF147A', marginBottom: 12, fontFamily: 'Poppins-SemiBold' },
   infoRow: { flexDirection: 'row', marginBottom: 12 },
@@ -1234,9 +1041,6 @@ const styles = StyleSheet.create({
   fieldLabel: { fontSize: 14, color: '#999', marginBottom: 4, fontFamily: 'Poppins-Regular' },
   input: { borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8, padding: 12, fontSize: 14, color: '#2C2C2C', fontFamily: 'Poppins-Regular' },
   textArea: { minHeight: 80, textAlignVertical: 'top' },
-  passwordWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F5F5F5', borderRadius: 8, paddingHorizontal: 12, marginBottom: 12 },
-  passwordInput: { flex: 1, paddingVertical: 12, fontSize: 14, color: '#2C2C2C', fontFamily: 'Poppins-Regular' },
-  eyeIcon: { padding: 4 },
   editButtons: { flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 16 },
   saveBtn: { flex: 1, backgroundColor: '#FF147A', padding: 12, borderRadius: 8, alignItems: 'center' },
   saveBtnText: { color: '#fff', fontWeight: '600', fontSize: 14, fontFamily: 'Poppins-SemiBold' },
@@ -1245,10 +1049,25 @@ const styles = StyleSheet.create({
   actionButtons: { flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 8 },
   editProfileBtn: { flex: 1, backgroundColor: '#FF147A', padding: 12, borderRadius: 8, alignItems: 'center' },
   editProfileBtnText: { color: '#fff', fontWeight: '600', fontSize: 14, fontFamily: 'Poppins-SemiBold' },
+  
+  changePasswordBtn: {
+    flex: 1,
+    backgroundColor: 'transparent',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FF9800',
+  },
+  changePasswordBtnText: {
+    color: '#FF9800',
+    fontWeight: '600',
+    fontSize: 14,
+    fontFamily: 'Poppins-SemiBold',
+  },
+  
   deleteProfileBtn: { flex: 1, backgroundColor: 'transparent', padding: 12, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#FF147A' },
   deleteProfileBtnText: { color: '#FF147A', fontWeight: '600', fontSize: 14, fontFamily: 'Poppins-SemiBold' },
-  changePasswordBtn: { backgroundColor: 'transparent', padding: 12, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#FF147A', marginTop: 8 },
-  changePasswordBtnText: { color: '#FF147A', fontWeight: '600', fontSize: 14, fontFamily: 'Poppins-SemiBold' },
   loyaltyCard: { paddingHorizontal: 16, marginVertical: 16 },
   loyaltyGradient: { borderRadius: 16, padding: 20 },
   loyaltyTitle: { fontSize: 16, fontWeight: 'bold', color: '#fff', marginBottom: 16, fontFamily: 'Poppins-Bold' },
@@ -1263,19 +1082,73 @@ const styles = StyleSheet.create({
   spendBtn: { backgroundColor: '#fff', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, marginLeft: 8 },
   spendBtnText: { color: '#FF147A', fontWeight: '600', fontSize: 12, fontFamily: 'Poppins-SemiBold' },
   discountText: { fontSize: 14, color: '#fff', textAlign: 'center', fontFamily: 'Poppins-Regular' },
-  aboutSection: {
-    marginHorizontal: 16, marginBottom: 16, padding: 16, backgroundColor: '#FFF',
-    borderRadius: 12, borderWidth: 1, borderColor: '#F0F0F0',
-  },
-  aboutHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 },
-  aboutTitle: { fontSize: 16, fontWeight: '600', color: '#FF147A', fontFamily: 'Poppins-SemiBold' },
-  aboutPhone: { fontSize: 14, color: '#FF147A', marginBottom: 6, fontFamily: 'Poppins-Medium', textDecorationLine: 'underline' },
-  aboutEmail: { fontSize: 13, color: '#666', marginBottom: 6, fontFamily: 'Poppins-Regular' },
-  aboutAddress: { fontSize: 13, color: '#666', marginBottom: 6, fontFamily: 'Poppins-Regular' },
-  aboutHours: { fontSize: 13, color: '#666', fontFamily: 'Poppins-Regular' },
   logoutBtn: { marginHorizontal: 16, marginVertical: 20, backgroundColor: '#FF147A', padding: 14, borderRadius: 12, alignItems: 'center' },
   logoutBtnText: { color: '#fff', fontSize: 16, fontWeight: '600', fontFamily: 'Poppins-SemiBold' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  
+  passwordModal: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 24,
+    width: '90%',
+    maxWidth: 400,
+  },
+  passwordModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#FF147A',
+    textAlign: 'center',
+    marginBottom: 20,
+    fontFamily: 'Poppins-Bold',
+  },
+  passwordLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 6,
+    marginTop: 12,
+    fontFamily: 'Poppins-Regular',
+  },
+  passwordInput: {
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 10,
+    padding: 14,
+    fontSize: 16,
+    color: '#2C2C2C',
+    fontFamily: 'Poppins-Regular',
+  },
+  passwordModalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+  },
+  passwordCancelBtn: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 10,
+    backgroundColor: '#F5F5F5',
+    alignItems: 'center',
+  },
+  passwordCancelText: {
+    color: '#666',
+    fontSize: 16,
+    fontWeight: '500',
+    fontFamily: 'Poppins-Medium',
+  },
+  passwordSaveBtn: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 10,
+    backgroundColor: '#FF147A',
+    alignItems: 'center',
+  },
+  passwordSaveText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    fontFamily: 'Poppins-SemiBold',
+  },
+  
   pickupModal: { backgroundColor: '#fff', borderRadius: 16, padding: 20, width: '85%' },
   pickupModalTitle: { fontSize: 18, fontWeight: '600', color: '#FF147A', textAlign: 'center', marginBottom: 16, fontFamily: 'Poppins-SemiBold' },
   pickupOption: { paddingVertical: 12, paddingHorizontal: 16, borderRadius: 8, marginBottom: 8, backgroundColor: '#F5F5F5', alignItems: 'center' },
@@ -1298,11 +1171,6 @@ const styles = StyleSheet.create({
   adminContent: { flex: 1, padding: 12 },
   adminRefreshBtn: { backgroundColor: '#F0F0F0', padding: 10, borderRadius: 8, alignItems: 'center', marginBottom: 12 },
   adminRefreshText: { fontSize: 14, color: '#666' },
-  filterScroll: { marginBottom: 12 },
-  filterChip: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16, backgroundColor: '#F0F0F0', marginRight: 8 },
-  filterChipActive: { backgroundColor: '#FF147A' },
-  filterChipText: { fontSize: 12, color: '#666' },
-  filterChipTextActive: { color: '#fff', fontWeight: '600' },
   adminAddBtn: { marginBottom: 12, borderRadius: 8, overflow: 'hidden' },
   adminAddGradient: { paddingVertical: 12, alignItems: 'center', borderRadius: 8 },
   adminAddBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
@@ -1346,10 +1214,6 @@ const styles = StyleSheet.create({
   adminRoleText: { fontSize: 11, color: '#666' },
   adminMakeAdminBtn: { backgroundColor: '#FF147A', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
   adminMakeAdminText: { fontSize: 10, color: '#fff' },
-  adminEditUserBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 10, paddingVertical: 6, gap: 6, backgroundColor: '#FFF0F5', borderRadius: 8 },
-  adminEditUserText: { fontSize: 11, color: '#FF147A', fontWeight: '500' },
-  adminResetPasswordBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 6, paddingVertical: 6, gap: 6, backgroundColor: '#FFF3E0', borderRadius: 8 },
-  adminResetPasswordText: { fontSize: 11, color: '#FF9800', fontWeight: '500' },
   adminPromoCard: { backgroundColor: '#fff', borderRadius: 12, padding: 12, marginBottom: 10 },
   adminPromoHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   adminPromoName: { fontSize: 14, fontWeight: '600', color: '#333' },
