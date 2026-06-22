@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { deleteUserAccount } from '../../services/database';
-import { showGradientAlert } from '../../components/GradientAlert';
+import { deleteUserAccount } from '../services/database'; // 👈 ИСПРАВЛЕН ПУТЬ
+import { showGradientAlert } from '../components/GradientAlert'; // 👈 ИСПРАВЛЕН ПУТЬ
 
 export const useAuth = () => {
   const [user, setUser] = React.useState(null);
@@ -38,11 +38,9 @@ export const useAuth = () => {
             try {
               await AsyncStorage.clear();
               setUser(null);
-              
               if (onAuthStateChange) {
                 await onAuthStateChange();
               }
-              
               navigation.replace('Login');
             } catch (error) {
               console.error('Ошибка выхода:', error);
@@ -74,16 +72,12 @@ export const useAuth = () => {
                 const user = JSON.parse(userStr);
                 await deleteUserAccount(user.user_id);
               }
-              
               await AsyncStorage.clear();
               setUser(null);
-              
               if (onAuthStateChange) {
                 await onAuthStateChange();
               }
-              
               navigation.replace('Login');
-              
               showGradientAlert({ 
                 title: 'Успешно', 
                 message: 'Аккаунт удалён' 
