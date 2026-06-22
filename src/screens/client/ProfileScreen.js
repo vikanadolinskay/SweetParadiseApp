@@ -355,14 +355,14 @@ export default function ProfileScreen({ navigation, onAuthStateChange }) {
     }
   };
 
-  // ===== ВЫХОД ИЗ АККАУНТА (через useAuth) =====
+  // ===== ВЫХОД ИЗ АККАУНТА =====
   const handleLogout = () => {
-    logout(navigation);
+    logout(navigation, onAuthStateChange);
   };
 
-  // ===== УДАЛЕНИЕ ПРОФИЛЯ (через useAuth) =====
+  // ===== УДАЛЕНИЕ ПРОФИЛЯ =====
   const handleDeleteProfile = () => {
-    deleteAccount(navigation);
+    deleteAccount(navigation, onAuthStateChange);
   };
 
   const handleAvatarPress = () => {

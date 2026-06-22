@@ -12,7 +12,7 @@ import ProfileScreen from '../screens/client/ProfileScreen';
 import ProductDetailScreen from '../screens/client/ProductDetailScreen';
 import CheckoutScreen from '../screens/client/CheckoutScreen';
 
-// Экран регистрации
+// Экран авторизации и регистрации
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 
@@ -60,11 +60,11 @@ function AdminTabs() {
           let iconName;
           if (route.name === 'Каталог') iconName = focused ? 'grid' : 'grid-outline';
           else if (route.name === 'Корзина') iconName = focused ? 'basket' : 'basket-outline';
-          else if (route.name === 'Профиль') iconName = focused ? 'person' : 'person-outline';
           else if (route.name === 'Заказы') iconName = focused ? 'list' : 'list-outline';
           else if (route.name === 'Товары') iconName = focused ? 'cube' : 'cube-outline';
           else if (route.name === 'Клиенты') iconName = focused ? 'people' : 'people-outline';
           else if (route.name === 'Акции') iconName = focused ? 'pricetag' : 'pricetag-outline';
+          else if (route.name === 'Профиль') iconName = focused ? 'person' : 'person-outline';
           return <Ionicons name={iconName} size={size} color={color} />;
         },
         tabBarActiveTintColor: '#FF147A',
